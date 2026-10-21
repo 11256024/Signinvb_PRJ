@@ -362,7 +362,7 @@
           <div id="dashboard-stats-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"></div>
 
           <!-- 總覽子功能橫幅選單 -->
-          <div id="dashboard-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="dashboard-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
           <!-- 子區塊一：體能近期狀況 -->
           <div id="dash-panel-fitness" class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
@@ -395,7 +395,7 @@
                 <i data-lucide="calendar-off" class="w-4 h-4 text-matte-ink"></i>
                 <span id="dash-leaves-heading">出席與請假</span>
               </h3>
-              <button onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'attendance');" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">查看全部 &rarr;</button>
+              <button onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'calendar');" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">查看全部 &rarr;</button>
             </div>
             <div id="dash-leaves-list" class="space-y-2.5 flex-1"></div>
           </div>
@@ -407,7 +407,7 @@
                 <i data-lucide="package" class="w-4 h-4 text-matte-ink"></i>
                 <span id="dash-equip-heading">借還器材狀況</span>
               </h3>
-              <button onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'equipment');" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">器材日曆 &rarr;</button>
+              <button onclick="switchTab('equipment');" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">器材日曆 &rarr;</button>
             </div>
             <div id="dash-finance-summary" class="space-y-2.5 flex-1"></div>
           </div>
@@ -416,22 +416,22 @@
         <!-- ==================== TAB (Admin 專屬): 行事曆與練球排程 ==================== -->
         <section id="tab-schedule" class="hidden space-y-4 sm:space-y-5">
           <!-- 橫幅選單 -->
-          <div id="admin-schedule-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="admin-schedule-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
-          <!-- 區塊一：固定練球計畫 ＆ 連續放假區間 -->
-          <div id="admin-batch-schedule-panel" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+          <!-- 單日臨時更改行程日曆 -->
+          <div id="admin-master-schedule-calendar" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
 
-          <!-- 區塊二：單日臨時更改行程日曆 -->
-          <div id="admin-master-schedule-calendar" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+          <!-- 固定練球計畫 ＆ 連續放假區間 -->
+          <div id="admin-batch-schedule-panel" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
 
-          <!-- 區塊三：每年開學與寒暑假日期設定 -->
+          <!-- 每年開學與寒暑假日期設定 -->
           <div id="admin-academic-dates-editor" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 2: 體能與補體能紀錄 ==================== -->
         <section id="tab-fitness" class="hidden space-y-4">
           <!-- 體能與補體能子功能橫幅選單（區塊一：體能紀錄、區塊二：補體能專區） -->
-          <div id="fitness-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="fitness-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
           <div id="fitness-action-filter-card" class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -441,25 +441,25 @@
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <button type="button" onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'calendar');"
-                  class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                  class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                   <i data-lucide="calendar" class="w-4 h-4"></i>
                   <span>球隊行事曆</span>
                 </button>
                 <div id="fitness-player-actions" class="hidden flex-wrap items-center gap-2">
                   <button type="button" onclick="openFitnessModal('player_makeup')"
-                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                     <i data-lucide="dumbbell" class="w-4 h-4"></i>
                     <span>新增補體能</span>
                   </button>
                 </div>
                 <div id="fitness-admin-actions" class="flex flex-wrap items-center gap-2">
                   <button type="button" onclick="openFitnessModal('single')"
-                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                     <i data-lucide="user-check" class="w-4 h-4"></i>
                     <span>單筆指派</span>
                   </button>
                   <button type="button" id="btn-batch-fitness" onclick="openFitnessModal('batch')"
-                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-stone-300/80 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                     <i data-lucide="users" class="w-4 h-4"></i>
                     <span>全隊指派</span>
                   </button>
@@ -502,19 +502,22 @@
           <!-- 體能完成度進度條 -->
           <div id="fitness-progress-bar" class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border"></div>
 
-          <!-- 區塊一：體能紀錄（三組動作組數表） -->
+          <!-- 體能紀錄（三組動作組數表） -->
           <div id="fitness-matrix-viewer" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
 
           <div id="fitness-summary-container" class="hidden space-y-4"></div>
 
-          <!-- 區塊二：補體能專區（補體能清單與上傳回報） -->
+          <!-- 補體能專區（補體能清單與上傳回報） -->
           <div id="fitness-list-container" class="hidden space-y-3"></div>
+
+          <!-- 需補體能次數統計看板 -->
+          <div id="fitness-makeup-stats-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 3: 隊費與代繳費用 (Fees) ==================== -->
         <section id="tab-fees" class="hidden space-y-4">
           <!-- 隊費與代繳費用子功能橫幅選單 -->
-          <div id="fees-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="fees-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
           <!-- 收費統計摘要 -->
           <div id="fees-summary-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
@@ -527,12 +530,12 @@
               </div>
               <div id="fees-admin-actions" class="flex flex-wrap items-center gap-2">
                 <button type="button" onclick="openFeeModal('single')"
-                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                   <i data-lucide="plus" class="w-4 h-4"></i>
                   <span>單筆新增</span>
                 </button>
                 <button type="button" id="btn-batch-fee" onclick="openFeeModal('batch')"
-                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-stone-300/80 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                   <i data-lucide="users" class="w-4 h-4"></i>
                   <span>全隊批發</span>
                 </button>
@@ -570,33 +573,33 @@
         <!-- ==================== TAB 4: 球隊行事曆與請假 (Leaves) ==================== -->
         <section id="tab-leaves" class="hidden space-y-4">
           <!-- 球隊行事曆與請假子功能橫幅選單 -->
-          <div id="leaves-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="leaves-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
-          <div id="leaves-action-filter-card" class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
+          <div id="leaves-action-filter-card" class="hidden bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <h2 class="font-bold text-sm sm:text-base text-matte-ink" id="leaves-section-title">球隊行事曆與請假</h2>
+                  <h2 class="font-bold text-sm sm:text-base text-matte-ink" id="leaves-section-title">請假登記與篩選</h2>
                   <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[11px] font-bold">全隊公開</span>
                 </div>
-                <p id="leaves-role-hint" class="text-xs text-matte-muted mt-0.5">查看排程日曆、請假登記、需補體能次數與借還器材</p>
+                <p id="leaves-role-hint" class="text-xs text-matte-muted mt-0.5">登記練球請假與篩選各球員請假明細</p>
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup');"
-                  class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                  class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                   <i data-lucide="dumbbell" class="w-4 h-4"></i>
                   <span>補體能專區</span>
                 </button>
                 <button type="button" id="btn-open-leave-modal" onclick="openLeaveModal()"
-                  class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                  class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs sm:text-sm font-bold transition shadow-2xs">
                   <i data-lucide="calendar-plus" class="w-4 h-4"></i>
-                  <span>登記請假 / 借器材</span>
+                  <span id="btn-open-leave-text">登記請假 / 借器材</span>
                 </button>
               </div>
             </div>
 
             <!-- 篩選列（於請假登記與明細時顯示） -->
-            <div id="leaves-filter-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-matte-border">
+            <div id="leaves-filter-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-matte-border">
               <select id="filter-leave-ay" onchange="onChangeAcademicYearSelect(this.value)"
                 class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-bold text-matte-ink">
                 <option value="115">115 學年</option>
@@ -630,25 +633,26 @@
             </div>
           </div>
 
-          <!-- 區塊一：球隊行事曆（排程與完成日曆 ＋ 當日全隊出席看板） -->
+          <!-- 球隊行事曆（排程與完成日曆） -->
           <div id="leaves-schedule-calendar" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
-          <div id="team-attendance-board" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
 
-          <!-- 區塊二：請假登記與明細 -->
+          <!-- 全隊出席情況看板（放入請假分類） -->
+          <div id="team-attendance-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+
+          <!-- 請假登記統計與明細 -->
           <div id="leaves-overview-container" class="hidden space-y-4"></div>
           <div id="leaves-list-container" class="hidden space-y-3"></div>
+        </section>
 
-          <!-- 區塊三：需補體能次數統計 -->
-          <div id="leaves-makeup-stats-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
-
-          <!-- 區塊四：借還器材日曆 -->
-          <div id="leaves-equipment-calendar-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+        <!-- ==================== TAB: 借還器材日曆 (Equipment) ==================== -->
+        <section id="tab-equipment" class="hidden space-y-4">
+          <div id="equipment-calendar-board" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 5: 球隊經費收支狀況 (Finances) ==================== -->
         <section id="tab-finances" class="hidden space-y-4">
           <!-- 球隊經費收支子功能橫幅選單 -->
-          <div id="finances-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="finances-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
           <!-- 經費三大核心指標卡 -->
           <div id="finance-summary-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
@@ -709,13 +713,12 @@
 
           <!-- 經費收支細項流水帳 -->
           <div id="finance-list-container" class="hidden space-y-2.5"></div>
-          <div id="equipment-calendar-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 6: 設定與帳號管理 (Settings) ==================== -->
         <section id="tab-settings" class="hidden space-y-5">
           <!-- 設定與帳號管理子功能橫幅選單 -->
-          <div id="settings-subtab-bar" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="settings-subtab-bar" class="bg-matte-card p-2 sm:p-2.5 rounded-2xl shadow-sm border border-matte-border"></div>
 
           <!-- 個人帳號資訊與修改密碼 -->
           <div id="settings-personal-panel" class="bg-matte-card p-4 sm:p-6 rounded-2xl shadow-sm border border-matte-border space-y-4">

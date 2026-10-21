@@ -352,10 +352,10 @@ const state = {
   currentUser: null,
   activeTab: 'dashboard',
   dashboardSubTab: 'fitness', // 'fitness' | 'fees' | 'leaves' | 'equipment'
-  scheduleSubTab: 'batch',    // 'batch' (區塊一：長期固定計畫) | 'calendar' (區塊二：臨時更改行程) | 'academic' (區塊三：每年輸入開學與放假日期)
-  fitnessSubTab: 'calendar',  // 'calendar' (區塊一：排程日曆與當日進度) | 'matrix' (區塊二：三組動作組數表) | 'list' (區塊三：逐筆任務明細)
+  scheduleSubTab: 'calendar', // 'calendar' (臨時更改行程) | 'batch' (固定練球計畫) | 'academic' (每年輸入開學與放假日期)
+  fitnessSubTab: 'matrix',    // 'matrix' (體能紀錄 / 三組動作組數表) | 'makeup' (補體能專區)
   feesSubTab: 'overview',     // 'overview' (依項目/球員彙整) | 'all' (全部細項) | 'team' (隊費) | 'proxy' (代繳費用)
-  leavesSubTab: 'attendance', // 'attendance' (全隊出席情況看板) | 'equipment' (借還器材日曆) | 'overview' (請假統計彙整) | 'list' (請假紀錄明細)
+  leavesSubTab: 'calendar',   // 'calendar' (球隊行事曆＋當日出席) | 'leave' (請假登記與明細) | 'makeupStats' (需補體能次數) | 'equipment' (借還器材日曆)
   financesSubTab: 'overview', // 'overview' (科目分類收支彙整) | 'list' (收支細項流水帳)
   settingsSubTab: 'personal', // 'personal' (個人帳號與密碼) | 'members' (全隊成員帳號管理)
   adminViewMode: 'summary', // 'summary' (粗略項目彙整) 或 'detail' (細項明細逐筆)
@@ -373,7 +373,19 @@ const state = {
   leaves: [],
   finances: [],
   realtimeChannel: null,
-  pollTimer: null
+  pollTimer: null,
+  editingBatchRuleId: null,
+  batchScheduleDraft: {
+    isDirty: false,
+    startDate: '',
+    endDate: '',
+    weekdays: null,
+    type: '',
+    practiceTime: '',
+    startTime: '',
+    endTime: '',
+    planNote: ''
+  }
 };
 
 // ============================================================================
@@ -441,11 +453,15 @@ function getTermLongTermPlanConfig(academicYear, period) {
   if (sysRec && sysRec.reason) {
     try {
       const parsed = JSON.parse(sysRec.reason);
+      const rawRules = Array.isArray(parsed.rules) ? parsed.rules : [];
       return {
         academicYear: ay,
         period: per,
         planNote: parsed.planNote || '',
-        rules: Array.isArray(parsed.rules) ? parsed.rules : [],
+        rules: rawRules.map((r, idx) => ({
+          id: r.id || `rule_${ay}_${per}_${idx}_${(r.weekdays || []).join('')}`,
+          ...r
+        })),
         updatedAt: parsed.updatedAt || ''
       };
     } catch (e) {
@@ -852,6 +868,19 @@ function applyAcademicPeriodSelection(newAy, newPeriod) {
     )
     .sort((a, b) => (b.target_date || '').localeCompare(a.target_date || ''));
   state.selectedFitnessDate = playerRecsInTerm.length > 0 ? playerRecsInTerm[0].target_date : best.dateStr;
+
+  state.editingBatchRuleId = null;
+  state.batchScheduleDraft = {
+    isDirty: false,
+    startDate: '',
+    endDate: '',
+    weekdays: null,
+    type: '',
+    practiceTime: '',
+    startTime: '',
+    endTime: '',
+    planNote: ''
+  };
 
   syncAcademicFilterDropdowns();
   renderAll();
@@ -1574,6 +1603,8 @@ async function fetchAllFromSupabase(showSpin = false) {
       fitRes.data = refreshedFit.data || fitRes.data;
     }
 
+    const prevFingerprint = `${state.users.length}_${state.fitness.length}_${state.fees.length}_${state.leaves.length}_${state.finances.length}_${state.leaves.slice(0, 20).map(l => l.id + (l.updated_at || l.created_at || '')).join(',')}`;
+
     state.users = usersData || [];
     state.fitness = fitRes.data || [];
     state.fees = feeRes.data || [];
@@ -1615,9 +1646,13 @@ async function fetchAllFromSupabase(showSpin = false) {
       }
     }
 
+    const newFingerprint = `${state.users.length}_${state.fitness.length}_${state.fees.length}_${state.leaves.length}_${state.finances.length}_${state.leaves.slice(0, 20).map(l => l.id + (l.updated_at || l.created_at || '')).join(',')}`;
+
     saveLocalCache();
     updateConnectionIndicators(true);
-    renderAll();
+    if (showSpin || newFingerprint !== prevFingerprint) {
+      renderAll();
+    }
     return true;
   } catch (err) {
     console.error('Supabase fetch error:', err);
@@ -1857,14 +1892,14 @@ function handleLogout() {
 function setAdminViewMode(mode) {
   state.adminViewMode = mode;
   if (mode === 'summary') {
-    state.fitnessSubTab = 'calendar';
+    state.fitnessSubTab = 'matrix';
     state.feesSubTab = 'overview';
-    state.leavesSubTab = 'attendance';
+    state.leavesSubTab = 'calendar';
     state.financesSubTab = 'overview';
   } else {
-    state.fitnessSubTab = 'matrix';
+    if (state.fitnessSubTab !== 'makeup') state.fitnessSubTab = 'matrix';
     if (state.feesSubTab === 'overview') state.feesSubTab = 'all';
-    state.leavesSubTab = 'list';
+    state.leavesSubTab = 'leave';
     state.financesSubTab = 'list';
   }
   updateAdminViewModeButtons();
@@ -1881,26 +1916,29 @@ function renderSubTabBannerHtml(containerId, sectionKey, sectionTitle, subTabs, 
       : 'grid-cols-1 md:grid-cols-3';
 
   bar.innerHTML = `
-    <div class="grid ${colClass} gap-2.5">
+    <div class="grid ${colClass} gap-2 sm:gap-2.5">
       ${subTabs.map(tab => {
         const isActive = activeSubId === tab.id;
+        const hasBadge = Boolean(tab.badge && !tab.badge.startsWith('區塊'));
         return `
           <button type="button" onclick="switchSectionSubTab('${escapeJsStr(sectionKey)}', '${escapeJsStr(tab.id)}')"
-            class="p-3 rounded-xl border text-left transition flex flex-col justify-between gap-1 ${
+            class="px-3.5 py-2.5 rounded-xl border text-left transition flex items-center justify-between gap-3 ${
               isActive
                 ? 'bg-[#1c1b18] text-stone-100 border-[#1c1b18] shadow-sm ring-2 ring-stone-500'
                 : 'bg-matte-sub hover:bg-stone-300/80 text-matte-ink border-matte-border'
             }">
-            <div class="flex items-center justify-between gap-2">
-              <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                isActive ? 'bg-stone-700 text-stone-100' : 'bg-stone-300 text-matte-ink'
-              }">${escapeHtml(tab.badge)}</span>
-              <i data-lucide="${escapeHtml(tab.icon || 'folder')}" class="w-4 h-4 ${isActive ? 'text-stone-200' : 'text-matte-muted'}"></i>
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <div class="font-extrabold text-xs sm:text-sm leading-snug flex items-center gap-1.5 truncate">
+                ${hasBadge ? `
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold shrink-0 ${
+                    isActive ? 'bg-stone-700 text-stone-100' : 'bg-stone-300 text-matte-ink'
+                  }">${escapeHtml(tab.badge)}</span>
+                ` : ''}
+                <span class="truncate">${escapeHtml(tab.title)}</span>
+              </div>
+              <p class="text-[11px] truncate leading-tight ${isActive ? 'text-stone-300' : 'text-matte-muted'}">${escapeHtml(tab.desc || tab.subtitle || '')}</p>
             </div>
-            <div>
-              <div class="font-extrabold text-xs sm:text-sm leading-snug">${escapeHtml(tab.title)}</div>
-              <p class="text-[11px] mt-0.5 ${isActive ? 'text-stone-300' : 'text-matte-muted'}">${escapeHtml(tab.desc || tab.subtitle || '')}</p>
-            </div>
+            <i data-lucide="${escapeHtml(tab.icon || 'folder')}" class="w-4 h-4 shrink-0 ${isActive ? 'text-stone-200' : 'text-matte-muted'}"></i>
           </button>
         `;
       }).join('')}
@@ -1917,11 +1955,7 @@ function switchSectionSubTab(sectionKey, subTabId) {
     state.scheduleSubTab = subTabId;
     renderAdminScheduleSection();
   } else if (sectionKey === 'fitness') {
-    state.fitnessSubTab = subTabId;
-    if (isAdmin) {
-      state.adminViewMode = subTabId === 'calendar' ? 'summary' : 'detail';
-      updateAdminViewModeButtons();
-    }
+    state.fitnessSubTab = ['matrix', 'makeup', 'makeupStats'].includes(subTabId) ? subTabId : 'matrix';
     renderFitnessSection();
   } else if (sectionKey === 'fees') {
     state.feesSubTab = subTabId;
@@ -1935,11 +1969,18 @@ function switchSectionSubTab(sectionKey, subTabId) {
     }
     renderFeesSection();
   } else if (sectionKey === 'leaves') {
-    state.leavesSubTab = subTabId;
-    if (isAdmin && (subTabId === 'overview' || subTabId === 'list')) {
-      state.adminViewMode = subTabId === 'overview' ? 'summary' : 'detail';
-      updateAdminViewModeButtons();
+    if (subTabId === 'equipment') {
+      switchTab('equipment');
+      return;
     }
+    if (subTabId === 'makeupStats') {
+      switchTab('fitness');
+      switchSectionSubTab('fitness', 'makeupStats');
+      return;
+    }
+    // 舊版子分頁代號相容轉換
+    const legacyMap = { attendance: 'leave', overview: 'leave', list: 'leave' };
+    state.leavesSubTab = legacyMap[subTabId] || subTabId;
     renderLeavesSection();
   } else if (sectionKey === 'finances') {
     state.financesSubTab = subTabId;
@@ -2040,9 +2081,8 @@ function selectFitnessMatrixPlayer(playerName) {
       isDateInAcademicPeriod(f.target_date, state.selectedAcademicYear, state.selectedTermPeriod)
     )
     .sort((a, b) => (b.target_date || '').localeCompare(a.target_date || ''));
-  if (!playerRecords.some(f => f.target_date === state.selectedFitnessDate)) {
-    state.selectedFitnessDate = playerRecords.length > 0 ? playerRecords[0].target_date : '';
-  }
+  // 選擇成員後預設為最新的紀錄
+  state.selectedFitnessDate = playerRecords.length > 0 ? playerRecords[0].target_date : '';
   renderFitnessSection();
 }
 
@@ -2058,13 +2098,13 @@ function selectLeaveMatrixPlayer(playerName) {
     state.selectedLeaveDate = recs.length > 0 ? recs[0].leave_date : '';
   }
   renderLeavesSection();
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
 }
 
 function selectLeaveMatrixDate(dateStr) {
   state.selectedLeaveDate = dateStr;
   renderLeavesSection();
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
 }
 
 function drillDownFeesByTitle(title) {
@@ -2107,12 +2147,12 @@ function drillDownLeavesByMember(userId) {
   if (memberEl) {
     memberEl.value = memberEl.value === userId ? 'all' : userId;
   }
-  state.leavesSubTab = 'list';
+  state.leavesSubTab = 'leave';
   if (state.currentUser && state.currentUser.role === 'admin') {
     setAdminViewMode('detail');
   }
   renderLeavesSection();
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
   lucide.createIcons();
 }
 
@@ -2121,7 +2161,7 @@ function drillDownLeavesBySession(sessionName) {
   const memberEl = document.getElementById('filter-leave-member');
   if (searchEl) searchEl.value = sessionName;
   if (memberEl) memberEl.value = 'all';
-  state.leavesSubTab = 'list';
+  state.leavesSubTab = 'leave';
   if (state.currentUser && state.currentUser.role === 'admin') {
     setAdminViewMode('detail');
   } else {
@@ -2158,7 +2198,8 @@ function getNavItemsForRole(role) {
   items.push(
     { id: 'fitness', label: '體能', fullLabel: '體能與補體能', icon: 'activity' },
     { id: 'fees', label: '隊費', fullLabel: '隊費與代繳', icon: 'wallet' },
-    { id: 'leaves', label: '請假', fullLabel: '請假與出席', icon: 'calendar-off' },
+    { id: 'leaves', label: '行事曆/請假', fullLabel: '球隊行事曆與請假', icon: 'calendar' },
+    { id: 'equipment', label: '器材', fullLabel: '借還器材日曆', icon: 'package' },
     { id: 'finances', label: '經費', fullLabel: '球隊經費', icon: 'landmark' },
     { id: 'settings', label: '設定', fullLabel: isAdmin ? '成員與設定' : '帳號設定', icon: 'settings' }
   );
@@ -2169,7 +2210,7 @@ function switchTab(tabId) {
   state.activeTab = tabId;
   const isAdmin = state.currentUser && state.currentUser.role === 'admin';
 
-  const allTabs = ['dashboard', 'schedule', 'fitness', 'fees', 'leaves', 'finances', 'settings'];
+  const allTabs = ['dashboard', 'schedule', 'fitness', 'fees', 'leaves', 'equipment', 'finances', 'settings'];
   allTabs.forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     if (el) {
@@ -2189,15 +2230,19 @@ function switchTab(tabId) {
     ],
     fitness: [
       '體能與補體能',
-      '查看排程日曆、三組動作組數表與任務清單'
+      '查看體能紀錄（三組動作組數表）、補體能專區與需補次數統計'
     ],
     fees: [
       '隊費與代繳費用',
       isAdmin ? '管理全隊收費進度與繳費明細' : '查看應繳項目並回報匯款資訊'
     ],
     leaves: [
-      '請假與全隊出席',
-      '查看全隊出席名單、借還器材日曆與請假紀錄'
+      '球隊行事曆與請假',
+      '排程月曆、登記練球請假與全隊出席名單'
+    ],
+    equipment: [
+      '借還器材日曆',
+      '登記練球借還球與球袋、查看當日借還負責人與每月達標統計'
     ],
     finances: [
       '球隊經費收支',
@@ -2236,9 +2281,7 @@ function renderNavigation() {
 
   const scopePill = document.getElementById('scope-indicator-pill');
   if (scopePill) {
-    if (state.activeTab === 'finances') {
-      scopePill.textContent = '🏐 全隊公開';
-    } else if (state.activeTab === 'leaves') {
+    if (state.activeTab === 'finances' || state.activeTab === 'leaves' || state.activeTab === 'equipment') {
       scopePill.textContent = '🏐 全隊公開';
     } else if (state.activeTab === 'schedule') {
       scopePill.textContent = '🗓️ 管理者專區';
@@ -2312,7 +2355,9 @@ function renderNavigation() {
   const fitnessPlayerActions = document.getElementById('fitness-player-actions');
   if (fitnessPlayerActions) fitnessPlayerActions.classList.toggle('hidden', isAdmin);
   const leaveOpenBtn = document.getElementById('btn-open-leave-modal');
-  if (leaveOpenBtn) leaveOpenBtn.classList.toggle('hidden', isAdmin);
+  if (leaveOpenBtn) leaveOpenBtn.classList.remove('hidden');
+  const leaveOpenText = document.getElementById('btn-open-leave-text');
+  if (leaveOpenText) leaveOpenText.textContent = isAdmin ? '登記請假 / 借器材' : '我要請假 / 借器材';
   const fitRoleHint = document.getElementById('fitness-role-hint');
   if (fitRoleHint) {
     fitRoleHint.textContent = isAdmin
@@ -2417,7 +2462,8 @@ function renderAll() {
   renderFitnessSection();
   renderFeesSection();
   renderLeavesSection();
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
+  renderEquipmentSection();
   renderFinancesSection();
   renderSettingsSection();
   lucide.createIcons();
@@ -2688,28 +2734,24 @@ function renderDashboardSection() {
     [
       {
         id: 'fitness',
-        badge: '區塊一',
         title: `🏋️ ${isAdmin ? '全隊體能進度' : '我的體能任務'}`,
         desc: `${termCfg.titleLabel} 完成 ${fitDone}/${fitTotal} (${fitRate}%)`,
         icon: 'activity'
       },
       {
         id: 'fees',
-        badge: '區塊二',
         title: `💰 ${isAdmin ? '全隊收費進度' : '我的隊費與代繳'}`,
         desc: feeUnpaidAmount > 0 ? `待繳 NT$ ${feeUnpaidAmount.toLocaleString()}` : `已全數繳清 (${feePaidCount}筆)`,
         icon: 'wallet'
       },
       {
         id: 'leaves',
-        badge: '區塊三',
         title: `📅 全隊出席動態`,
         desc: `${activeDate} 出席 ${presentCount}/${totalPlayersCount} 人`,
         icon: 'calendar-off'
       },
       {
         id: 'equipment',
-        badge: '區塊四',
         title: `📦 借還器材狀況`,
         desc: '每日借還紀錄與每月達標統計',
         icon: 'package'
@@ -2800,7 +2842,7 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
   const sortedDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
 
   const topBanner = `
-    <div onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'equipment');"
+    <div onclick="switchTab('equipment');"
       class="cursor-pointer p-3 rounded-xl bg-[#1c1b18] text-stone-100 border border-stone-800 hover:bg-stone-800 transition flex items-center justify-between gap-2">
       <div>
         <div class="text-xs font-extrabold">
@@ -2824,7 +2866,7 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
     dashFinEl.innerHTML = topBanner + sortedPlayers.slice(0, 5).map(item => {
       const ok = item.count >= 1;
       return `
-        <div onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'equipment');"
+        <div onclick="switchTab('equipment');"
           class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
           <div class="min-w-0">
             <div class="flex items-center gap-1.5">
@@ -2852,7 +2894,7 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
     const hasAny = Boolean(eq.borrower || eq.returner);
 
     return `
-      <div onclick="switchTab('leaves'); switchSectionSubTab('leaves', 'equipment'); selectEquipCalendarDate('${escapeJsStr(d)}');"
+      <div onclick="switchTab('equipment'); selectEquipCalendarDate('${escapeJsStr(d)}');"
         class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 flex-wrap">
@@ -2877,7 +2919,7 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
   const doneList = monthlyStats.filter(x => x.count >= 1).map(x => `${x.user.name}(${x.count}次)`);
   const pendingList = monthlyStats.filter(x => x.count === 0).map(x => x.user.name);
   const quotaSummaryCard = `
-    <div onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+    <div onclick="switchTab('equipment'); setTimeout(() => document.getElementById('equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
       class="cursor-pointer p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-1">
       <div class="text-xs font-extrabold text-matte-ink">● ${m} 月已借還器材 (${doneList.length}人)：<span class="font-semibold">${doneList.length > 0 ? escapeHtml(doneList.join('、')) : '目前尚無人登記'}</span></div>
       <div class="text-[11px] text-matte-muted truncate">○ ${m} 月尚未借器材 (${pendingList.length}人)：${pendingList.length > 0 ? escapeHtml(pendingList.join('、')) : '全員皆已達標 🎉'}</div>
@@ -3127,10 +3169,10 @@ function renderFitnessMatrixViewer() {
 
     ${renderAcademicPeriodControlHtml('fitness-matrix', false)}
 
-    ${isAdmin ? `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-matte-sub/60 p-3.5 rounded-2xl border border-matte-border">
-        <div class="space-y-1.5">
-          <label class="block text-xs font-extrabold text-matte-ink">① 隊員 (${playerNames.length} 人)</label>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-matte-sub/60 p-3.5 rounded-2xl border border-matte-border">
+      <div class="space-y-1.5">
+        <label class="block text-xs font-extrabold text-matte-ink">① 隊員 ${isAdmin ? `(${playerNames.length} 人)` : ''}</label>
+        ${isAdmin ? `
           <select onchange="selectFitnessMatrixPlayer(this.value)"
             class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink focus:outline-none focus:ring-2 focus:ring-stone-700">
             ${playerNames.map(name => {
@@ -3143,59 +3185,37 @@ function renderFitnessMatrixViewer() {
               return `<option value="${escapeHtml(name)}" ${selected}>🏐 ${escapeHtml(name)}（${doneCount}/${recs.length} 完成）</option>`;
             }).join('')}
           </select>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="block text-xs font-extrabold text-matte-ink">② 訓練日期 (${playerRecords.length} 筆)</label>
-          ${playerRecords.length === 0 ? `
-            <div class="px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs text-matte-muted">
-              此期間無體能紀錄
-            </div>
-          ` : `
-            <select onchange="if(this.value) selectFitnessMatrixDate(this.value)"
-              class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink focus:outline-none focus:ring-2 focus:ring-stone-700">
-              ${playerRecords.map(r => {
-                const selected = r.target_date === state.selectedFitnessDate ? 'selected' : '';
-                const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
-                const statusLabel = r.is_completed ? '● 完成' : '○ 未完';
-                const typeLabel = isMakeup ? ' [補]' : '';
-                return `<option value="${escapeHtml(r.target_date)}" ${selected}>📅 ${escapeHtml(r.target_date)}（${statusLabel}${typeLabel}）</option>`;
-              }).join('')}
-            </select>
-          `}
-        </div>
-      </div>
-    ` : `
-      <div class="space-y-1.5">
-        <span class="text-xs font-extrabold text-matte-ink block">
-          訓練日期 (${playerRecords.length} 筆)：
-        </span>
-        ${playerRecords.length === 0 ? `
-          <div class="p-4 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-muted text-center">
-            此期間無體能紀錄
-          </div>
         ` : `
-          <div class="flex flex-wrap gap-1.5">
-            ${playerRecords.map(r => {
-              const active = r.target_date === state.selectedFitnessDate && (!activeRecord || r.id === activeRecord.id);
-              const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
-              return `
-                <button type="button" onclick="selectFitnessMatrixDate('${escapeJsStr(r.target_date)}')"
-                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                    active
-                      ? 'bg-[#1c1b18] text-stone-100 shadow-xs ring-2 ring-stone-500'
-                      : 'bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border'
-                  }">
-                  <span>📅 ${escapeHtml(r.target_date)}</span>
-                  ${isMakeup ? `<span class="px-1 py-0.2 rounded text-[10px] ${active ? 'bg-stone-700 text-stone-100' : 'bg-stone-300 text-matte-ink'}">補</span>` : ''}
-                  <span class="text-[11px]">${r.is_completed ? '●' : '○'}</span>
-                </button>
-              `;
-            }).join('')}
+          <div class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span>🏐 ${escapeHtml(state.currentUser.name)}</span>
+              ${state.currentUser.jersey_number ? `<span class="text-xs text-matte-muted">(#${escapeHtml(state.currentUser.jersey_number)})</span>` : ''}
+            </span>
+            <span class="px-2 py-0.5 rounded bg-matte-sub text-[10px] text-matte-muted font-bold border border-matte-border">我的紀錄</span>
           </div>
         `}
       </div>
-    `}
+
+      <div class="space-y-1.5">
+        <label class="block text-xs font-extrabold text-matte-ink">② 訓練日期 (${playerRecords.length} 筆)</label>
+        ${playerRecords.length === 0 ? `
+          <div class="px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs text-matte-muted">
+            此期間無體能紀錄
+          </div>
+        ` : `
+          <select onchange="if(this.value) selectFitnessMatrixDate(this.value)"
+            class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink focus:outline-none focus:ring-2 focus:ring-stone-700">
+            ${playerRecords.map(r => {
+              const selected = r.target_date === state.selectedFitnessDate ? 'selected' : '';
+              const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
+              const statusLabel = r.is_completed ? '● 完成' : '○ 未完';
+              const typeLabel = isMakeup ? ' [補]' : '';
+              return `<option value="${escapeHtml(r.target_date)}" ${selected}>📅 ${escapeHtml(r.target_date)}（${statusLabel}${typeLabel}）</option>`;
+            }).join('')}
+          </select>
+        `}
+      </div>
+    </div>
 
     <!-- Step 3: 列為動作、欄為組(第一、二、三)數 表格呈現 -->
     ${activeRecord ? `
@@ -3344,7 +3364,32 @@ function groupFinancesByCategory(list) {
 }
 
 // ----------------------------------------------------------------------------
-// 2. 渲染體能與補體能紀錄 (Fitness - 整合一般體能與請假補體能)
+// 補體能判斷與需補次數統計（請假次數 − 已完成補體能次數）
+// ----------------------------------------------------------------------------
+function isMakeupFitnessRecord(f) {
+  return (f.task_name || '').includes('補體能') ||
+    (f.note || '').includes('補體能:') ||
+    (f.note || '').includes('補體能照:');
+}
+
+function getMakeupStatsForPlayer(user, ay, pk) {
+  if (!user) return { leaveCount: 0, doneCount: 0, pendingCount: 0, needed: 0, leaveDates: [] };
+  const matchUser = r => r.user_id === user.id || r.user_name === user.name;
+  const leaves = getRealLeaves().filter(l => matchUser(l) && isDateInAcademicPeriod(l.leave_date, ay, pk));
+  const makeups = state.fitness.filter(f => matchUser(f) && isMakeupFitnessRecord(f) && isDateInAcademicPeriod(f.target_date, ay, pk));
+  const doneCount = makeups.filter(f => f.is_completed).length;
+  const pendingCount = makeups.filter(f => !f.is_completed).length;
+  return {
+    leaveCount: leaves.length,
+    doneCount,
+    pendingCount,
+    needed: Math.max(0, leaves.length - doneCount),
+    leaveDates: leaves.map(l => l.leave_date).sort()
+  };
+}
+
+// ----------------------------------------------------------------------------
+// 2. 渲染體能與補體能紀錄 (Fitness - 區塊一：體能紀錄、區塊二：補體能專區)
 // ----------------------------------------------------------------------------
 function renderFitnessSection() {
   ensureAcademicPeriodInitialized();
@@ -3385,80 +3430,109 @@ function renderFitnessSection() {
     );
   }
 
-  const total = list.length;
-  const done = list.filter(f => f.is_completed).length;
+  // 依子分頁拆分：1.體能紀錄（一般體能）、2.補體能專區（補體能回報）、3.需補體能次數（統計）
+  const validFitSubs = ['matrix', 'makeup', 'makeupStats'];
+  const activeFitSub = validFitSubs.includes(state.fitnessSubTab) ? state.fitnessSubTab : 'matrix';
+  state.fitnessSubTab = activeFitSub;
+  const regularList = list.filter(f => !isMakeupFitnessRecord(f));
+  const makeupList = list.filter(isMakeupFitnessRecord);
+  const scopedList = activeFitSub === 'makeup' ? makeupList : regularList;
+
+  const total = scopedList.length;
+  const done = scopedList.filter(f => f.is_completed).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const myMakeupStat = !isAdmin ? getMakeupStatsForPlayer(state.currentUser, state.selectedAcademicYear, state.selectedTermPeriod) : null;
+  const teamNeeded = isAdmin
+    ? getPlayerUsers().reduce((s, u) => s + getMakeupStatsForPlayer(u, state.selectedAcademicYear, state.selectedTermPeriod).needed, 0)
+    : 0;
 
   const progEl = document.getElementById('fitness-progress-bar');
   if (progEl) {
-    progEl.innerHTML = `
-      <div class="flex items-center justify-between text-xs sm:text-sm font-bold mb-2 flex-wrap gap-1">
-        <span class="text-matte-ink">
-          ${escapeHtml(termCfg.titleLabel)} ${isAdmin ? '全隊體能完成度' : '我的體能完成度'}：${done} / ${total}
-        </span>
-        <span class="text-matte-ink font-extrabold">${pct}%</span>
-      </div>
-      <div class="w-full h-2.5 bg-matte-sub rounded-full overflow-hidden border border-matte-border">
-        <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width: ${pct}%"></div>
-      </div>
-    `;
+    if (activeFitSub === 'makeupStats') {
+      progEl.innerHTML = `
+        <div class="flex items-center justify-between text-xs sm:text-sm font-bold flex-wrap gap-1">
+          <span class="text-matte-ink">
+            【${escapeHtml(termCfg.titleLabel)}】${isAdmin ? `全隊需補體能次數統計（全隊待補共 ${teamNeeded} 次）` : `我的需補體能：待補 ${myMakeupStat ? myMakeupStat.needed : 0} 次・已補 ${myMakeupStat ? myMakeupStat.doneCount : 0} 次`}
+          </span>
+          <span class="text-matte-ink font-extrabold">${isAdmin ? `已補 ${makeupList.filter(f => f.is_completed).length} 次` : (myMakeupStat && myMakeupStat.needed === 0 ? '● 無待補' : `○ 待補 ${myMakeupStat ? myMakeupStat.needed : 0} 次`)}</span>
+        </div>
+      `;
+    } else {
+      progEl.innerHTML = `
+        <div class="flex items-center justify-between text-xs sm:text-sm font-bold mb-2 flex-wrap gap-1">
+          <span class="text-matte-ink">
+            ${escapeHtml(termCfg.titleLabel)} ${activeFitSub === 'makeup' ? (isAdmin ? '全隊補體能完成度' : '我的補體能完成度') : (isAdmin ? '全隊體能完成度' : '我的體能完成度')}：${done} / ${total}
+          </span>
+          <span class="text-matte-ink font-extrabold">${pct}%</span>
+        </div>
+        <div class="w-full h-2.5 bg-matte-sub rounded-full overflow-hidden border border-matte-border">
+          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width: ${pct}%"></div>
+        </div>
+      `;
+    }
   }
 
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
   renderFitnessMatrixViewer();
 
   const filterGrid = document.getElementById('fitness-filter-grid');
-  const calendarEl = document.getElementById('fitness-schedule-calendar');
   const matrixEl = document.getElementById('fitness-matrix-viewer');
   const summaryContainer = document.getElementById('fitness-summary-container');
   const detailContainer = document.getElementById('fitness-list-container');
+  const makeupStatsEl = document.getElementById('fitness-makeup-stats-board');
   if (!summaryContainer || !detailContainer) return;
 
-  const activeFitSub = state.fitnessSubTab || 'calendar';
   renderSubTabBannerHtml(
     'fitness-subtab-bar',
     'fitness',
     '體能分類',
     [
       {
-        id: 'calendar',
-        badge: '區塊一',
-        title: '🗓️ 排程與完成日曆',
-        desc: '每日排程、完成進度與請假/已補名單',
-        icon: 'calendar'
-      },
-      {
         id: 'matrix',
-        badge: '區塊二',
-        title: `📊 三組動作組數表`,
-        desc: '依日期檢視或填寫第一、二、三組數據',
+        title: '📊 體能紀錄',
+        desc: `三組動作組數表（${regularList.filter(f => f.is_completed).length}/${regularList.length} 完成）`,
         icon: 'table'
       },
       {
-        id: 'list',
-        badge: '區塊三',
-        title: `📋 任務明細列表`,
-        desc: `共 ${total} 筆（已完成 ${done} 筆）`,
-        icon: 'list-checks'
+        id: 'makeup',
+        title: '🏋️ 補體能專區',
+        desc: myMakeupStat
+          ? `待補 ${myMakeupStat.needed} 次・已補 ${myMakeupStat.doneCount} 次`
+          : `補體能清單與回報（${makeupList.length} 筆）`,
+        icon: 'dumbbell'
+      },
+      {
+        id: 'makeupStats',
+        title: '📈 需補體能次數',
+        desc: myMakeupStat
+          ? `我待補 ${myMakeupStat.needed} 次`
+          : `全隊待補共 ${teamNeeded} 次`,
+        icon: 'clipboard-list'
       }
     ],
     activeFitSub
   );
 
   summaryContainer.classList.add('hidden');
-  if (filterGrid) filterGrid.classList.toggle('hidden', isAdmin && activeFitSub === 'matrix');
-  if (calendarEl) calendarEl.classList.toggle('hidden', activeFitSub !== 'calendar');
+  if (filterGrid) filterGrid.classList.toggle('hidden', activeFitSub !== 'makeup');
   if (matrixEl) matrixEl.classList.toggle('hidden', activeFitSub !== 'matrix');
-  detailContainer.classList.toggle('hidden', activeFitSub !== 'list');
+  detailContainer.classList.toggle('hidden', activeFitSub !== 'makeup');
+  if (makeupStatsEl) {
+    makeupStatsEl.classList.toggle('hidden', activeFitSub !== 'makeupStats');
+    if (activeFitSub === 'makeupStats') {
+      renderMakeupStatsBoard('fitness-makeup-stats-board');
+    }
+  }
 
-  if (isAdmin && activeFitSub === 'matrix') {
+  if (activeFitSub === 'matrix') {
     const scopedFitnessForMember = state.fitness.filter(f =>
       isDateInAcademicPeriod(f.target_date, state.selectedAcademicYear, state.selectedTermPeriod)
     );
     const allMemberStats = groupFitnessByMember(scopedFitnessForMember);
-    const selectedStat = allMemberStats.find(m => m.userName === state.selectedFitnessPlayer) || {
-      userName: state.selectedFitnessPlayer || '隊員',
-      jersey: '',
+    const targetName = isAdmin ? state.selectedFitnessPlayer : state.currentUser.name;
+    const selectedStat = allMemberStats.find(m => m.userName === targetName) || {
+      userName: targetName || '隊員',
+      jersey: !isAdmin && state.currentUser.jersey_number ? state.currentUser.jersey_number : '',
       done: 0,
       total: 0,
       pct: 0,
@@ -3483,21 +3557,52 @@ function renderFitnessSection() {
     }
   }
 
-  if (activeFitSub !== 'list') {
+  if (activeFitSub !== 'makeup') {
     return;
   }
 
-  if (list.length === 0) {
-    detailContainer.innerHTML = `
+  // 補體能專區頂部：待補次數摘要＋新增補體能
+  const makeupHeaderHtml = `
+    <div class="bg-matte-card rounded-2xl p-4 border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs sm:text-sm font-extrabold text-matte-ink">🏋️ 補體能專區・${escapeHtml(termCfg.titleLabel)}</span>
+        ${myMakeupStat ? `
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold ${myMakeupStat.needed > 0 ? 'bg-stone-200 text-matte-ink border border-stone-400' : 'bg-[#1c1b18] text-stone-100'}">
+            ${myMakeupStat.needed > 0 ? `○ 待補 ${myMakeupStat.needed} 次` : '● 無待補'}
+          </span>
+          <span class="text-[11px] text-matte-muted font-bold">請假 ${myMakeupStat.leaveCount} 次・已補 ${myMakeupStat.doneCount} 次</span>
+        ` : `
+          <span class="text-[11px] text-matte-muted font-bold">全隊待補次數請見上方「需補體能次數」分類</span>
+        `}
+      </div>
+      <div class="flex flex-wrap items-center gap-2 shrink-0">
+        ${isAdmin ? `
+          <button type="button" onclick="switchSectionSubTab('fitness', 'makeupStats');"
+            class="px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition shadow-2xs">
+            需補次數統計 &rarr;
+          </button>
+        ` : `
+          <button type="button" onclick="openFitnessModal('player_makeup')"
+            class="px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition shadow-2xs flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>新增補體能</span>
+          </button>
+        `}
+      </div>
+    </div>
+  `;
+
+  if (makeupList.length === 0) {
+    detailContainer.innerHTML = makeupHeaderHtml + `
       <div class="bg-matte-card rounded-2xl p-8 text-center border border-matte-border text-matte-muted text-sm">
-        目前沒有符合條件的體能或補體能細項紀錄
+        此期間尚無補體能紀錄
       </div>
     `;
     return;
   }
 
-  detailContainer.innerHTML = list.map(f => {
-    const isMakeup = (f.task_name || '').includes('補體能') || (f.note || '').includes('補體能:') || (f.note || '').includes('補體能照:');
+  detailContainer.innerHTML = makeupHeaderHtml + makeupList.map(f => {
+    const isMakeup = true;
     return `
       <div class="bg-matte-card rounded-2xl p-4 shadow-xs border ${f.is_completed ? 'border-stone-400' : 'border-matte-border'} flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition">
         <div class="min-w-0 flex-1 space-y-1">
@@ -3609,28 +3714,24 @@ function renderFeesSection() {
   const feeSubTabs = isAdmin ? [
     {
       id: 'overview',
-      badge: '區塊一',
       title: '📊 收費進度彙整',
       desc: '依收費項目與球員待繳清單彙整',
       icon: 'layers'
     },
     {
       id: 'all',
-      badge: '區塊二',
       title: `📋 全部明細 (${baseFeesForCount.length})`,
       desc: '全隊所有隊費與代繳紀錄',
       icon: 'list'
     },
     {
       id: 'team',
-      badge: '區塊三',
       title: `▪ 隊費 (${teamFeeCnt})`,
       desc: '各學期隊費收費紀錄',
       icon: 'wallet'
     },
     {
       id: 'proxy',
-      badge: '區塊四',
       title: `▫ 代繳費用 (${proxyFeeCnt})`,
       desc: '球衣、報名費、護具等代繳項目',
       icon: 'receipt'
@@ -3638,21 +3739,18 @@ function renderFeesSection() {
   ] : [
     {
       id: 'all',
-      badge: '區塊一',
       title: `📋 全部費用 (${baseFeesForCount.length})`,
       desc: unpaidAmount > 0 ? `待繳 NT$ ${unpaidAmount.toLocaleString()}` : '已全數繳清',
       icon: 'list'
     },
     {
       id: 'team',
-      badge: '區塊二',
       title: `▪ 學期隊費 (${teamFeeCnt})`,
       desc: '學期隊費狀態與匯款備註',
       icon: 'wallet'
     },
     {
       id: 'proxy',
-      badge: '區塊三',
       title: `▫ 代繳費用 (${proxyFeeCnt})`,
       desc: '球衣、報名費、護具等代繳明細',
       icon: 'receipt'
@@ -3998,14 +4096,14 @@ function fillQuickPracticeTime(timeStr, markChanged = false) {
 // - 區塊三 (academic)：每年輸入開學與放假日期（自動切分暑假、上學期、寒假、下學期）
 // ============================================================================
 function switchAdminScheduleSubTab(subTabId) {
-  state.scheduleSubTab = subTabId || 'batch';
+  state.scheduleSubTab = subTabId || 'calendar';
   renderAdminScheduleSection();
   lucide.createIcons();
 }
 
 function renderAdminScheduleSection() {
   if (!state.currentUser || state.currentUser.role !== 'admin') return;
-  const activeSub = state.scheduleSubTab || 'batch';
+  const activeSub = state.scheduleSubTab || 'calendar';
 
   renderSubTabBannerHtml(
     'admin-schedule-subtab-bar',
@@ -4013,22 +4111,19 @@ function renderAdminScheduleSection() {
     '行事曆與排程',
     [
       {
+        id: 'calendar',
+        title: '🗓️ 臨時更改行程',
+        desc: '點選單日臨時改時段、停練或調動行程',
+        icon: 'calendar'
+      },
+      {
         id: 'batch',
-        badge: '區塊一',
         title: '⚡ 固定練球計畫',
         desc: '設定每週固定練球時段與連續放假區間',
         icon: 'calendar-clock'
       },
       {
-        id: 'calendar',
-        badge: '區塊二',
-        title: '🏐 臨時更改行程',
-        desc: '點選單日臨時改時段、停練或調動行程',
-        icon: 'calendar'
-      },
-      {
         id: 'academic',
-        badge: '區塊三',
         title: '🎓 開學與放假設定',
         desc: '設定各學年度寒暑假與上下學期開學日',
         icon: 'calendar-cog'
@@ -4045,7 +4140,10 @@ function renderAdminScheduleSection() {
   if (calEl) calEl.classList.toggle('hidden', activeSub !== 'calendar');
   if (acadEl) acadEl.classList.toggle('hidden', activeSub !== 'academic');
 
-  renderAdminBatchSchedulePanel();
+  const isEditingBatch = document.activeElement && document.getElementById('admin-batch-schedule-panel')?.contains(document.activeElement);
+  if (!isEditingBatch) {
+    renderAdminBatchSchedulePanel();
+  }
   renderPracticeScheduleCalendar('admin-master-schedule-calendar');
   renderAdminAcademicDatesEditor();
 }
@@ -4292,6 +4390,99 @@ async function adminCreateNewAcademicYear(newAy) {
   showToast(`已建立並切換至 ${ay} 學年度，請設定該學年度開學與放假日期！`, 'success');
 }
 
+function countRulePracticeDates(rule) {
+  if (!rule || !rule.startDate || !rule.endDate || !Array.isArray(rule.weekdays)) return 0;
+  let count = 0;
+  let cur = rule.startDate;
+  let safety = 0;
+  while (cur <= rule.endDate && safety < 500) {
+    safety++;
+    const [y, m, d] = cur.split('-').map(Number);
+    const wk = new Date(y, m - 1, d).getDay();
+    if (rule.weekdays.includes(wk)) {
+      count++;
+    }
+    cur = addDaysToDateStr(cur, 1);
+  }
+  return count;
+}
+
+function getRuleTargetDates(rule) {
+  if (!rule || !rule.startDate || !rule.endDate || !Array.isArray(rule.weekdays)) return [];
+  const targetDates = [];
+  let cur = rule.startDate;
+  let safety = 0;
+  while (cur <= rule.endDate && safety < 500) {
+    safety++;
+    const [y, m, d] = cur.split('-').map(Number);
+    const wk = new Date(y, m - 1, d).getDay();
+    if (rule.weekdays.includes(wk)) {
+      targetDates.push(cur);
+    }
+    cur = addDaysToDateStr(cur, 1);
+  }
+  return targetDates;
+}
+
+async function saveTermLongTermPlan(ay, per, planNote, rules) {
+  const planKey = `PLAN_${ay}_${per}`;
+  const existingPlanRecs = getAcademicConfigRecords().filter(r => r.leave_type === planKey);
+  const existingPlanIds = existingPlanRecs.map(r => r.id);
+  if (existingPlanIds.length > 0) {
+    state.leaves = state.leaves.filter(r => !existingPlanIds.includes(r.id));
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').delete().in('id', existingPlanIds);
+    }
+  }
+
+  const planRec = {
+    id: generateUUID(),
+    user_id: state.currentUser ? state.currentUser.id : 'admin',
+    user_name: state.currentUser ? state.currentUser.name : '管理者',
+    leave_date: (rules && rules[0] && rules[0].startDate) ? rules[0].startDate : getTodayStr(),
+    leave_type: planKey,
+    session_name: '__SYS_ACADEMIC_CALENDAR__',
+    reason: JSON.stringify({
+      academicYear: ay,
+      period: per,
+      planNote: planNote || '',
+      rules: rules || [],
+      updatedAt: new Date().toISOString()
+    }),
+    status: '已核准',
+    created_at: new Date().toISOString()
+  };
+
+  state.leaves.unshift(planRec);
+  if (state.isSupabaseReady) {
+    await supabaseClient.from('team_leaves').insert([planRec]);
+  }
+  return planRec;
+}
+
+function fillBatchPracticeTime(start, end) {
+  const startEl = document.getElementById('batch-sched-time-start');
+  const endEl = document.getElementById('batch-sched-time-end');
+  if (startEl && start) startEl.value = start;
+  if (endEl && end) endEl.value = end;
+  onBatchScheduleInputChange();
+}
+
+function onBatchScheduleInputChange() {
+  if (!state.batchScheduleDraft) state.batchScheduleDraft = {};
+  state.batchScheduleDraft.isDirty = true;
+  state.batchScheduleDraft.startDate = document.getElementById('batch-sched-start')?.value || '';
+  state.batchScheduleDraft.endDate = document.getElementById('batch-sched-end')?.value || '';
+  state.batchScheduleDraft.type = document.getElementById('batch-sched-type')?.value || '';
+  const startTime = document.getElementById('batch-sched-time-start')?.value || '';
+  const endTime = document.getElementById('batch-sched-time-end')?.value || '';
+  state.batchScheduleDraft.startTime = startTime;
+  state.batchScheduleDraft.endTime = endTime;
+  state.batchScheduleDraft.practiceTime = (startTime && endTime) ? `${startTime}~${endTime}` : (startTime || endTime || '');
+  state.batchScheduleDraft.planNote = document.getElementById('batch-sched-plan-note')?.value || '';
+  state.batchScheduleDraft.weekdays = Array.from(document.querySelectorAll('.batch-weekday-chk:checked')).map(el => Number(el.value));
+}
+
 function renderAdminBatchSchedulePanel() {
   const container = document.getElementById('admin-batch-schedule-panel');
   if (!container || !state.currentUser || state.currentUser.role !== 'admin') return;
@@ -4302,16 +4493,65 @@ function renderAdminBatchSchedulePanel() {
   const defaultEnd = cfg.ranges[0]?.end || getTodayStr();
   const defaultTime = cfg.dates?.defaultPracticeTime || '18:30~21:30';
   const curPlan = getTermLongTermPlanConfig(cfg.numericYear, cfg.period === 'all' ? '上學期' : cfg.period);
-  const lastRule = curPlan.rules && curPlan.rules.length > 0 ? curPlan.rules[curPlan.rules.length - 1] : null;
-  const initWeekdays = lastRule && Array.isArray(lastRule.weekdays) && lastRule.weekdays.length > 0 ? lastRule.weekdays.map(Number) : [2, 4];
-  const initTime = (lastRule && lastRule.practiceTime) ? lastRule.practiceTime : defaultTime;
-  const initType = (lastRule && lastRule.type) ? lastRule.type : '練球+體能';
-  const initPlanNote = curPlan.planNote || '';
 
-  // 彙整當前學年度期間內所有已設定排程/放假/臨時異動的日期
-  const periodSchedules = getScheduleRecords()
-    .filter(r => r.leave_date && r.leave_type !== '無' && r.leave_type !== 'none' && isDateInAcademicPeriod(r.leave_date, state.selectedAcademicYear, state.selectedTermPeriod))
-    .sort((a, b) => (a.leave_date || '').localeCompare(b.leave_date || ''));
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${cfg.numericYear}_${cfg.period}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
+
+  const editingRule = state.editingBatchRuleId
+    ? curRules.find(r => r.id === state.editingBatchRuleId)
+    : null;
+  const isEditing = Boolean(editingRule);
+
+  // 抓取當前 DOM 上的即時輸入，避免任何背景重新渲染刷掉使用者所選的值
+  const domType = document.getElementById('batch-sched-type')?.value;
+  const domStart = document.getElementById('batch-sched-start')?.value;
+  const domEnd = document.getElementById('batch-sched-end')?.value;
+  const domStartTime = document.getElementById('batch-sched-time-start')?.value;
+  const domEndTime = document.getElementById('batch-sched-time-end')?.value;
+  const domNote = document.getElementById('batch-sched-plan-note')?.value;
+  const domChks = Array.from(document.querySelectorAll('.batch-weekday-chk:checked')).map(el => Number(el.value));
+  const hasDomInputs = Boolean(document.getElementById('batch-sched-type'));
+
+  const draft = state.batchScheduleDraft || {};
+
+  let formStart = defaultStart;
+  let formEnd = defaultEnd;
+  let initWeekdays = [2, 4];
+  let initType = '練球+體能';
+  let formStartTime = '18:30';
+  let formEndTime = '21:30';
+  let initPlanNote = '';
+
+  if (isEditing && editingRule) {
+    let sTime = '18:30';
+    let eTime = '21:30';
+    if (editingRule.practiceTime && editingRule.practiceTime.includes('~')) {
+      const parts = editingRule.practiceTime.split('~').map(s => s.trim());
+      sTime = parts[0] || '18:30';
+      eTime = parts[1] || '21:30';
+    } else if (editingRule.practiceTime) {
+      sTime = editingRule.practiceTime;
+    }
+
+    formStart = (draft.isDirty && draft.startDate) ? draft.startDate : (hasDomInputs && domStart ? domStart : (editingRule.startDate || defaultStart));
+    formEnd = (draft.isDirty && draft.endDate) ? draft.endDate : (hasDomInputs && domEnd ? domEnd : (editingRule.endDate || defaultEnd));
+    initWeekdays = (draft.isDirty && Array.isArray(draft.weekdays)) ? draft.weekdays : (hasDomInputs && domChks.length > 0 ? domChks : (Array.isArray(editingRule.weekdays) ? editingRule.weekdays.map(Number) : [2, 4]));
+    initType = (draft.isDirty && draft.type) ? draft.type : (hasDomInputs && domType ? domType : (editingRule.type || '練球+體能'));
+    formStartTime = (draft.isDirty && draft.startTime !== undefined) ? draft.startTime : (hasDomInputs && domStartTime !== undefined ? domStartTime : sTime);
+    formEndTime = (draft.isDirty && draft.endTime !== undefined) ? draft.endTime : (hasDomInputs && domEndTime !== undefined ? domEndTime : eTime);
+    initPlanNote = (draft.isDirty && draft.planNote !== undefined) ? draft.planNote : (hasDomInputs && domNote !== undefined ? domNote : (editingRule.planNote || ''));
+  } else {
+    const lastRule = curRules.length > 0 ? curRules[curRules.length - 1] : null;
+    formStart = (draft.isDirty && draft.startDate) ? draft.startDate : (hasDomInputs && domStart ? domStart : defaultStart);
+    formEnd = (draft.isDirty && draft.endDate) ? draft.endDate : (hasDomInputs && domEnd ? domEnd : defaultEnd);
+    initWeekdays = (draft.isDirty && Array.isArray(draft.weekdays)) ? draft.weekdays : (hasDomInputs && domChks.length > 0 ? domChks : (lastRule && Array.isArray(lastRule.weekdays) ? lastRule.weekdays.map(Number) : [2, 4]));
+    initType = (draft.isDirty && draft.type) ? draft.type : (hasDomInputs && domType ? domType : '練球+體能');
+    formStartTime = (draft.isDirty && draft.startTime !== undefined) ? draft.startTime : (hasDomInputs && domStartTime !== undefined ? domStartTime : '18:30');
+    formEndTime = (draft.isDirty && draft.endTime !== undefined) ? draft.endTime : (hasDomInputs && domEndTime !== undefined ? domEndTime : '21:30');
+    initPlanNote = (draft.isDirty && draft.planNote !== undefined) ? draft.planNote : (hasDomInputs && domNote !== undefined ? domNote : '');
+  }
 
   container.innerHTML = `
     ${renderAcademicPeriodControlHtml('batch-schedule', false)}
@@ -4320,19 +4560,35 @@ function renderAdminBatchSchedulePanel() {
       <!-- 左卡：長時間固定練球計畫設定與批次排程 -->
       <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
         <div class="flex items-center justify-between flex-wrap gap-1">
-          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">🏐 固定練球計畫設定</span>
-          <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-bold">常規排程</span>
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+            ${isEditing ? '✏️ 更動固定練球區間' : '🏐 固定練球計畫設定'}
+          </span>
+          <span class="px-2 py-0.5 rounded ${isEditing ? 'bg-amber-600 text-stone-100' : 'bg-[#1c1b18] text-stone-100'} text-[10px] font-bold">
+            ${isEditing ? '編輯行程中' : '➕ 新增活動'}
+          </span>
         </div>
+
+        ${isEditing ? `
+          <div class="flex items-center justify-between p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-bold">
+            <span class="flex items-center gap-1.5 truncate">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+              <span class="truncate">更動中：${escapeHtml(editingRule.type)}（${escapeHtml(editingRule.practiceTime)}）</span>
+            </span>
+            <button type="button" onclick="cancelEditBatchScheduleRule()" class="px-2 py-0.5 rounded bg-matte-card hover:bg-stone-300 border border-matte-border text-matte-ink text-[11px] font-bold shrink-0 transition">
+              ✕ 放棄更動（切回新增活動）
+            </button>
+          </div>
+        ` : ''}
 
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-matte-muted mb-1">起始日</label>
-            <input type="date" id="batch-sched-start" value="${escapeHtml(defaultStart)}"
+            <input type="date" id="batch-sched-start" value="${escapeHtml(formStart)}" onchange="onBatchScheduleInputChange()"
               class="w-full px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-matte-muted mb-1">結束日</label>
-            <input type="date" id="batch-sched-end" value="${escapeHtml(defaultEnd)}"
+            <input type="date" id="batch-sched-end" value="${escapeHtml(formEnd)}" onchange="onBatchScheduleInputChange()"
               class="w-full px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink" />
           </div>
         </div>
@@ -4342,7 +4598,7 @@ function renderAdminBatchSchedulePanel() {
           <div class="flex flex-wrap gap-1.5">
             ${['日', '一', '二', '三', '四', '五', '六'].map((w, idx) => `
               <label class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink cursor-pointer">
-                <input type="checkbox" class="batch-weekday-chk accent-[#1c1b18]" value="${idx}" ${initWeekdays.includes(idx) ? 'checked' : ''} />
+                <input type="checkbox" class="batch-weekday-chk accent-[#1c1b18]" value="${idx}" ${initWeekdays.includes(idx) ? 'checked' : ''} onchange="onBatchScheduleInputChange()" />
                 <span>週${w}</span>
               </label>
             `).join('')}
@@ -4352,29 +4608,48 @@ function renderAdminBatchSchedulePanel() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-matte-muted mb-1">訓練類型</label>
-            <select id="batch-sched-type" class="w-full px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink">
+            <select id="batch-sched-type" onchange="onBatchScheduleInputChange()" class="w-full px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink">
               <option value="練球" ${initType === '練球' ? 'selected' : ''}>🏐 練球</option>
               <option value="體能" ${initType === '體能' ? 'selected' : ''}>💪 體能</option>
               <option value="練球+體能" ${initType === '練球+體能' ? 'selected' : ''}>🏐+💪 練球+體能</option>
             </select>
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-matte-muted mb-1">固定時段</label>
-            <input type="text" id="batch-sched-time" value="${escapeHtml(initTime)}" placeholder="18:30~21:30"
-              class="w-full px-2.5 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink" />
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-[11px] font-bold text-matte-muted">固定時段（起～訖）</label>
+              <span class="text-[10px] text-matte-muted font-bold">點選自由選時</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <input type="time" id="batch-sched-time-start" value="${escapeHtml(formStartTime)}" onchange="onBatchScheduleInputChange()"
+                class="w-full px-2 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink text-center" />
+              <span class="text-xs font-extrabold text-matte-muted shrink-0">~</span>
+              <input type="time" id="batch-sched-time-end" value="${escapeHtml(formEndTime)}" onchange="onBatchScheduleInputChange()"
+                class="w-full px-2 py-1.5 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink text-center" />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-1 flex-wrap text-[10px] text-matte-muted pt-0.5">
+          <span>時段快捷填入：</span>
+          <div class="flex flex-wrap gap-1">
+            <button type="button" onclick="fillBatchPracticeTime('18:30','21:30')" class="px-2 py-0.5 rounded bg-matte-card hover:bg-stone-300 border border-matte-border font-bold text-matte-ink transition">18:30~21:30</button>
+            <button type="button" onclick="fillBatchPracticeTime('18:00','21:00')" class="px-2 py-0.5 rounded bg-matte-card hover:bg-stone-300 border border-matte-border font-bold text-matte-ink transition">18:00~21:00</button>
+            <button type="button" onclick="fillBatchPracticeTime('19:00','22:00')" class="px-2 py-0.5 rounded bg-matte-card hover:bg-stone-300 border border-matte-border font-bold text-matte-ink transition">19:00~22:00</button>
+            <button type="button" onclick="fillBatchPracticeTime('12:15','13:30')" class="px-2 py-0.5 rounded bg-matte-card hover:bg-stone-300 border border-matte-border font-bold text-matte-ink transition">12:15~13:30</button>
           </div>
         </div>
 
         <div>
           <label class="block text-[11px] font-bold text-matte-muted mb-1">計畫說明（選填）</label>
-          <input type="text" id="batch-sched-plan-note" value="${escapeHtml(initPlanNote)}"
+          <input type="text" id="batch-sched-plan-note" value="${escapeHtml(initPlanNote)}" oninput="onBatchScheduleInputChange()"
             placeholder="如：每週二、四室外場練球"
             class="w-full px-3 py-2 rounded-xl bg-matte-card border border-matte-border text-xs font-bold text-matte-ink" />
         </div>
 
         <button type="button" onclick="applyBatchWeeklySchedule()"
-          class="w-full py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition">
-          儲存固定計畫並排入日曆
+          class="w-full py-2.5 rounded-xl ${isEditing ? 'bg-amber-700 hover:bg-amber-800' : 'bg-[#1c1b18] hover:bg-stone-800'} text-stone-100 text-xs font-extrabold transition flex items-center justify-center gap-1.5 shadow-sm">
+          <i data-lucide="${isEditing ? 'check-circle' : 'calendar-plus'}" class="w-4 h-4"></i>
+          <span>${isEditing ? '更動此練球區間並同步日曆' : '儲存固定計畫並排入日曆'}</span>
         </button>
       </div>
 
@@ -4411,46 +4686,294 @@ function renderAdminBatchSchedulePanel() {
       </div>
     </div>
 
-    <div class="pt-3 border-t border-matte-border space-y-2">
+    <!-- 區塊一底部：已排定固定練球區間清單（支援多筆固定活動） -->
+    <div class="pt-3 border-t border-matte-border space-y-2.5">
       <div class="flex items-center justify-between flex-wrap gap-2">
-        <span class="text-xs font-extrabold text-matte-ink">📋 已排定日程（共 ${periodSchedules.length} 筆，點擊可單日修改）：</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📋 已排定固定練球區間（共 ${curRules.length} 筆）</span>
+          ${curRules.length > 0 ? `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-bold">固定區間排程</span>` : ''}
+        </div>
+        <span class="text-[11px] text-matte-muted">💡 單獨更改單日行程請至【臨時更改行程】</span>
       </div>
-      ${periodSchedules.length === 0 ? `
-        <p class="text-xs text-matte-muted py-3 text-center">此期間尚無排定日程</p>
-      ` : `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-          ${periodSchedules.map(r => {
-            const det = getDateScheduleDetails(r.leave_date);
-            const isHol = det.type === '放假';
+
+      ${curRules.length > 0 ? `
+        <div class="space-y-2.5">
+          ${curRules.map(rule => {
+            const isBeingEdited = state.editingBatchRuleId === rule.id;
+            const trainingDays = countRulePracticeDates(rule);
+            const wNames = (rule.weekdays || []).map(w => ['週日','週一','週二','週三','週四','週五','週六'][w]).join('、');
             return `
-              <div onclick="selectAttendanceDate('${escapeJsStr(r.leave_date)}'); switchAdminScheduleSubTab('calendar');"
-                class="cursor-pointer p-2.5 rounded-xl border transition flex items-center justify-between gap-2 ${
-                  r.leave_date === state.selectedAttendanceDate
-                    ? 'bg-stone-200 border-[#1c1b18] ring-1 ring-[#1c1b18]'
-                    : 'bg-matte-sub hover:bg-stone-200/80 border-matte-border'
-                }">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-extrabold text-xs text-matte-ink">${escapeHtml(r.leave_date)}</span>
-                    <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
-                      isHol ? 'bg-stone-300 text-matte-ink border border-stone-500' : 'bg-[#1c1b18] text-stone-100'
-                    }">${isHol ? '🏖️ 放假' : escapeHtml(det.type)}</span>
-                    ${det.practiceTime ? `<span class="text-[10px] font-bold ${det.isTimeChanged ? 'text-matte-ink underline' : 'text-matte-muted'}">${det.isTimeChanged ? '⚠️' : '⏰'}${escapeHtml(det.practiceTime)}</span>` : ''}
+              <div class="p-4 rounded-2xl bg-matte-sub border ${isBeingEdited ? 'border-amber-500 ring-2 ring-amber-400/30' : 'border-matte-border'} hover:border-stone-500 transition space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div class="space-y-1.5 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="px-2.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold">
+                        ${rule.type === '練球' ? '🏐 練球' : (rule.type === '體能' ? '💪 體能' : '🏐+💪 練球+體能')}
+                      </span>
+                      <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+                        📅 練球區間：${escapeHtml(rule.startDate)} ～ ${escapeHtml(rule.endDate)}
+                      </span>
+                      <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+                        ⏰ 固定時段：${escapeHtml(rule.practiceTime)}
+                      </span>
+                      ${isBeingEdited ? `<span class="px-2 py-0.5 rounded bg-amber-600 text-stone-100 text-[10px] font-extrabold">✏️ 正在編輯中</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-matte-ink flex-wrap">
+                      <span class="font-extrabold">每週固定練習日：</span>
+                      <span class="font-bold text-matte-ink">${wNames || '無'}</span>
+                      <span class="text-matte-muted">（期間累計排定 ${trainingDays} 個訓練日）</span>
+                    </div>
+                    ${rule.planNote ? `
+                      <p class="text-xs text-matte-muted">計畫備註：<span class="text-matte-ink font-medium">${escapeHtml(rule.planNote)}</span></p>
+                    ` : ''}
                   </div>
-                  ${det.note ? `<p class="text-[11px] text-matte-muted truncate mt-0.5">${escapeHtml(det.note)}</p>` : ''}
+
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <button type="button" onclick="editBatchScheduleRule('${escapeJsStr(rule.id)}')"
+                      class="px-3.5 py-2 rounded-xl ${isBeingEdited ? 'bg-amber-600 text-stone-100' : 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100'} text-xs font-bold transition flex items-center gap-1.5 shadow-xs">
+                      <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                      <span>更動此練球區間</span>
+                    </button>
+                    <button type="button" onclick="switchAdminScheduleSubTab('calendar')"
+                      class="px-3 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
+                      <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                      <span>單獨更改日曆 &rarr;</span>
+                    </button>
+                    <button type="button" onclick="deleteBatchScheduleRule('${escapeJsStr(rule.id)}')"
+                      class="px-2.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-muted hover:text-rose-600 border border-matte-border text-xs font-bold transition"
+                      title="清除此固定區間與相關日程">
+                      清除
+                    </button>
+                  </div>
                 </div>
-                <button type="button" onclick="event.stopPropagation(); setAdminScheduleForDate('${escapeJsStr(r.leave_date)}', 'none')"
-                  title="取消此日排程"
-                  class="px-2 py-1 rounded-lg bg-matte-card hover:bg-stone-300 border border-matte-border text-[10px] font-bold text-matte-muted hover:text-matte-ink shrink-0">
-                  取消
-                </button>
               </div>
             `;
           }).join('')}
         </div>
+      ` : `
+        <div class="p-6 rounded-2xl bg-matte-sub border border-dashed border-matte-border text-center space-y-2">
+          <p class="text-xs text-matte-muted font-bold">此期間尚未排定固定練球區間（共 0 筆）</p>
+          <p class="text-[11px] text-matte-muted">請於上方設定起始日、結束日、每週固定練習日與時段後，點選「儲存固定計畫並排入日曆」</p>
+          <div class="pt-2">
+            <button type="button" onclick="switchAdminScheduleSubTab('calendar')"
+              class="px-3 py-1.5 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition inline-flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+              <span>前往臨時更改行程日曆</span>
+            </button>
+          </div>
+        </div>
       `}
     </div>
   `;
+}
+
+function editBatchScheduleRule(ruleId) {
+  const cfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const curPlan = getTermLongTermPlanConfig(cfg.numericYear, cfg.period === 'all' ? '上學期' : cfg.period);
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${cfg.numericYear}_${cfg.period}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
+  const rule = curRules.find(r => r.id === ruleId);
+  if (!rule) {
+    showToast('找不到該活動區間', 'error');
+    return;
+  }
+
+  state.editingBatchRuleId = ruleId;
+
+  let sTime = '18:30';
+  let eTime = '21:30';
+  if (rule.practiceTime && rule.practiceTime.includes('~')) {
+    const parts = rule.practiceTime.split('~').map(s => s.trim());
+    sTime = parts[0] || '18:30';
+    eTime = parts[1] || '21:30';
+  } else if (rule.practiceTime) {
+    sTime = rule.practiceTime;
+  }
+
+  state.batchScheduleDraft = {
+    isDirty: true,
+    startDate: rule.startDate || '',
+    endDate: rule.endDate || '',
+    weekdays: Array.isArray(rule.weekdays) ? rule.weekdays.map(Number) : [2, 4],
+    type: rule.type || '練球+體能',
+    practiceTime: rule.practiceTime || '18:30~21:30',
+    startTime: sTime,
+    endTime: eTime,
+    planNote: rule.planNote || ''
+  };
+
+  renderAdminBatchSchedulePanel();
+  lucide.createIcons();
+
+  const el = document.getElementById('admin-batch-schedule-panel');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  showToast(`已載入「${rule.type}」區間，調整完成後點擊「更動此練球區間並同步日曆」即可更新！`, 'info');
+}
+
+function cancelEditBatchScheduleRule() {
+  state.editingBatchRuleId = null;
+  state.batchScheduleDraft = {
+    isDirty: false,
+    startDate: '',
+    endDate: '',
+    weekdays: null,
+    type: '',
+    practiceTime: '',
+    startTime: '',
+    endTime: '',
+    planNote: ''
+  };
+  renderAdminBatchSchedulePanel();
+  lucide.createIcons();
+  showToast('已取消更動，切換回新增活動模式', 'info');
+}
+
+async function deleteBatchScheduleRule(ruleId) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') return;
+
+  const cfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const ay = cfg.numericYear || 115;
+  const per = cfg.period === 'all' ? '上學期' : cfg.period;
+  const curPlan = getTermLongTermPlanConfig(ay, per);
+
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${ay}_${per}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
+  const targetRule = curRules.find(r => r.id === ruleId);
+  if (!targetRule) {
+    showToast('找不到該固定活動紀錄', 'error');
+    return;
+  }
+
+  if (!confirm(`確定要清除「${targetRule.type} (${targetRule.practiceTime})」這個固定練球區間及其排定日程嗎？\n（單日已登記的請假或體能填報不會受影響）`)) {
+    return;
+  }
+
+  const ruleDates = getRuleTargetDates(targetRule);
+  const scheduleRecsToRemove = getScheduleRecords().filter(r => {
+    if (!ruleDates.includes(r.leave_date)) return false;
+    if (r.reason && r.reason.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(r.reason);
+        if (parsed.ruleId) return parsed.ruleId === ruleId;
+      } catch (e) {}
+    }
+    return r.leave_type === targetRule.type;
+  });
+
+  const removeIds = scheduleRecsToRemove.map(r => r.id);
+  if (removeIds.length > 0) {
+    state.leaves = state.leaves.filter(r => !removeIds.includes(r.id));
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').delete().in('id', removeIds);
+    }
+  }
+
+  const remainingRules = curRules.filter(r => r.id !== ruleId);
+  await saveTermLongTermPlan(ay, per, curPlan.planNote, remainingRules);
+
+  if (state.editingBatchRuleId === ruleId) {
+    state.editingBatchRuleId = null;
+    state.batchScheduleDraft = {
+      isDirty: false,
+      startDate: '',
+      endDate: '',
+      weekdays: null,
+      type: '',
+      practiceTime: '',
+      startTime: '',
+      endTime: '',
+      planNote: ''
+    };
+  }
+
+  await notifyRealtimePeers();
+  renderAll();
+  showToast(`已清除「${targetRule.type} (${targetRule.practiceTime})」固定活動及相關排程！`, 'info');
+}
+
+function loadBatchScheduleToForm(start, end, weekdays, type, time, note) {
+  const cfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const curPlan = getTermLongTermPlanConfig(cfg.numericYear, cfg.period === 'all' ? '上學期' : cfg.period);
+  const matched = (curPlan.rules || []).find(r => r.startDate === start && r.endDate === end && r.type === type);
+  if (matched && matched.id) {
+    editBatchScheduleRule(matched.id);
+    return;
+  }
+
+  const startEl = document.getElementById('batch-sched-start');
+  const endEl = document.getElementById('batch-sched-end');
+  const typeEl = document.getElementById('batch-sched-type');
+  const startTimeEl = document.getElementById('batch-sched-time-start');
+  const endTimeEl = document.getElementById('batch-sched-time-end');
+  const noteEl = document.getElementById('batch-sched-plan-note');
+
+  if (startEl && start) startEl.value = start;
+  if (endEl && end) endEl.value = end;
+  if (typeEl && type) typeEl.value = type;
+
+  let sTime = '18:30';
+  let eTime = '21:30';
+  if (time) {
+    const parts = time.split('~').map(s => s.trim());
+    sTime = parts[0] || '18:30';
+    eTime = parts[1] || '21:30';
+  }
+  if (startTimeEl) startTimeEl.value = sTime;
+  if (endTimeEl) endTimeEl.value = eTime;
+  if (noteEl && note !== undefined) noteEl.value = note;
+
+  const chks = document.querySelectorAll('.batch-weekday-chk');
+  const dayArr = Array.isArray(weekdays) ? weekdays.map(Number) : [2, 4];
+  chks.forEach(chk => {
+    chk.checked = dayArr.includes(Number(chk.value));
+  });
+
+  if (!state.batchScheduleDraft) state.batchScheduleDraft = {};
+  state.batchScheduleDraft.isDirty = true;
+  state.batchScheduleDraft.startDate = start || (startEl ? startEl.value : '');
+  state.batchScheduleDraft.endDate = end || (endEl ? endEl.value : '');
+  state.batchScheduleDraft.weekdays = dayArr;
+  state.batchScheduleDraft.type = type || (typeEl ? typeEl.value : '練球+體能');
+  state.batchScheduleDraft.startTime = sTime;
+  state.batchScheduleDraft.endTime = eTime;
+  state.batchScheduleDraft.practiceTime = time || (sTime && eTime ? `${sTime}~${eTime}` : '');
+  state.batchScheduleDraft.planNote = note !== undefined ? note : (noteEl ? noteEl.value : '');
+
+  if (startEl) {
+    startEl.focus();
+    startEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  showToast('已將此筆固定練球區間載入表單，調整上方區間日期或每週練習日後，點擊「更動此練球區間並同步日曆」即可更動！', 'info');
+}
+
+async function clearTermScheduleRange(start, end) {
+  if (!confirm(`確定要清除 ${start} ～ ${end} 期間已排定的所有固定練球與體能日程嗎？\n（單日已登記的請假或體能填報不會受影響）`)) return;
+  const targetIds = getScheduleRecords()
+    .filter(r => r.leave_date >= start && r.leave_date <= end)
+    .map(r => r.id);
+
+  const cfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const ay = cfg.numericYear || 115;
+  const per = cfg.period === 'all' ? (getAcademicTermInfo(start).period || '上學期') : cfg.period;
+  const planKey = `PLAN_${ay}_${per}`;
+  const planIds = getAcademicConfigRecords().filter(r => r.leave_type === planKey).map(r => r.id);
+  const allIds = Array.from(new Set([...targetIds, ...planIds]));
+
+  if (allIds.length > 0) {
+    state.leaves = state.leaves.filter(r => !allIds.includes(r.id));
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').delete().in('id', allIds);
+    }
+    await notifyRealtimePeers();
+  }
+  state.editingBatchRuleId = null;
+  renderAll();
+  showToast('已清除該固定練球區間排程', 'info');
 }
 
 async function applyBatchWeeklySchedule() {
@@ -4458,7 +4981,11 @@ async function applyBatchWeeklySchedule() {
   const startStr = document.getElementById('batch-sched-start')?.value;
   const endStr = document.getElementById('batch-sched-end')?.value;
   const schedType = document.getElementById('batch-sched-type')?.value || '練球+體能';
-  const practiceTime = (document.getElementById('batch-sched-time')?.value || '').trim();
+  const startT = (document.getElementById('batch-sched-time-start')?.value || '').trim();
+  const endT = (document.getElementById('batch-sched-time-end')?.value || '').trim();
+  const practiceTime = (startT && endT)
+    ? `${startT}~${endT}`
+    : (startT || endT || (document.getElementById('batch-sched-time')?.value || '').trim() || '18:30~21:30');
   const planNote = (document.getElementById('batch-sched-plan-note')?.value || '').trim();
   const checkedDays = Array.from(document.querySelectorAll('.batch-weekday-chk:checked')).map(el => Number(el.value));
 
@@ -4471,52 +4998,25 @@ async function applyBatchWeeklySchedule() {
     return;
   }
 
-  // 儲存本期間的「長時間固定練球計畫」設定與說明
   const cfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
   const ay = cfg.numericYear || 115;
   const per = cfg.period === 'all' ? (getAcademicTermInfo(startStr).period || '上學期') : cfg.period;
-  const planKey = `PLAN_${ay}_${per}`;
-  const existingPlanRecs = getAcademicConfigRecords().filter(r => r.leave_type === planKey);
-  const existingPlanIds = existingPlanRecs.map(r => r.id);
-  if (existingPlanIds.length > 0) {
-    state.leaves = state.leaves.filter(r => !existingPlanIds.includes(r.id));
-    if (state.isSupabaseReady) {
-      await supabaseClient.from('team_leaves').delete().in('id', existingPlanIds);
-    }
-  }
+  const curPlan = getTermLongTermPlanConfig(ay, per);
 
-  const planRec = {
-    id: generateUUID(),
-    user_id: state.currentUser.id,
-    user_name: state.currentUser.name,
-    leave_date: startStr,
-    leave_type: planKey,
-    session_name: '__SYS_ACADEMIC_CALENDAR__',
-    reason: JSON.stringify({
-      academicYear: ay,
-      period: per,
-      planNote,
-      rules: [{
-        weekdays: checkedDays,
-        type: schedType,
-        practiceTime: practiceTime || '18:30~21:30',
-        startDate: startStr,
-        endDate: endStr
-      }],
-      updatedAt: new Date().toISOString()
-    }),
-    status: '已核准',
-    created_at: new Date().toISOString()
-  };
-  state.leaves.unshift(planRec);
-  if (state.isSupabaseReady) {
-    await supabaseClient.from('team_leaves').insert([planRec]);
-  }
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${ay}_${per}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
 
+  const isEditing = Boolean(state.editingBatchRuleId);
+  let targetRuleId = state.editingBatchRuleId;
+  let updatedRules = [];
+
+  // 計算符合所選星期幾的所有目標日期
   const targetDates = [];
   let cur = startStr;
   let safety = 0;
-  while (cur <= endStr && safety < 400) {
+  while (cur <= endStr && safety < 500) {
     safety++;
     const [y, m, d] = cur.split('-').map(Number);
     const wk = new Date(y, m - 1, d).getDay();
@@ -4526,47 +5026,117 @@ async function applyBatchWeeklySchedule() {
     cur = addDaysToDateStr(cur, 1);
   }
 
-  if (targetDates.length === 0) {
-    await notifyRealtimePeers();
-    renderAll();
-    showToast('已儲存本期間固定練球計畫說明（所選區間內無符合勾選星期幾的日期）', 'info');
-    return;
+  if (isEditing) {
+    // 編輯行程模式：先清理舊規則對應的舊日曆日程
+    const oldRule = curRules.find(r => r.id === state.editingBatchRuleId);
+    if (oldRule) {
+      const oldDates = getRuleTargetDates(oldRule);
+      const oldScheduleRecs = getScheduleRecords().filter(r => {
+        if (!oldDates.includes(r.leave_date)) return false;
+        if (r.reason && r.reason.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(r.reason);
+            if (parsed.ruleId) return parsed.ruleId === state.editingBatchRuleId;
+          } catch (e) {}
+        }
+        return r.leave_type === oldRule.type;
+      });
+      const oldIds = oldScheduleRecs.map(r => r.id);
+      if (oldIds.length > 0) {
+        state.leaves = state.leaves.filter(r => !oldIds.includes(r.id));
+        if (state.isSupabaseReady) {
+          await supabaseClient.from('team_leaves').delete().in('id', oldIds);
+        }
+      }
+    }
+
+    const updatedRule = {
+      id: state.editingBatchRuleId,
+      weekdays: checkedDays,
+      type: schedType,
+      practiceTime: practiceTime || '18:30~21:30',
+      startDate: startStr,
+      endDate: endStr,
+      planNote: planNote
+    };
+    updatedRules = curRules.map(r => r.id === state.editingBatchRuleId ? updatedRule : r);
+  } else {
+    // 新增活動模式：建立新規則並加入既有規則列表中（不覆蓋原有的其他活動）
+    targetRuleId = generateUUID();
+    const newRule = {
+      id: targetRuleId,
+      weekdays: checkedDays,
+      type: schedType,
+      practiceTime: practiceTime || '18:30~21:30',
+      startDate: startStr,
+      endDate: endStr,
+      planNote: planNote
+    };
+    updatedRules = [...curRules, newRule];
   }
 
-  const existingIds = getScheduleRecords()
-    .filter(r => targetDates.includes(r.leave_date))
-    .map(r => r.id);
-  state.leaves = state.leaves.filter(r => !existingIds.includes(r.id));
-  if (state.isSupabaseReady && existingIds.length > 0) {
-    await supabaseClient.from('team_leaves').delete().in('id', existingIds);
+  // 儲存至長期計畫紀錄
+  await saveTermLongTermPlan(ay, per, curPlan.planNote || planNote, updatedRules);
+
+  if (targetDates.length > 0) {
+    // 若該目標日期已有相同 ruleId 或同類型的標記，先進行清理
+    const conflictIds = getScheduleRecords()
+      .filter(r => targetDates.includes(r.leave_date) && (r.leave_type === schedType || (r.reason && r.reason.includes(targetRuleId))))
+      .map(r => r.id);
+    if (conflictIds.length > 0) {
+      state.leaves = state.leaves.filter(r => !conflictIds.includes(r.id));
+      if (state.isSupabaseReady) {
+        await supabaseClient.from('team_leaves').delete().in('id', conflictIds);
+      }
+    }
+
+    const reasonJson = JSON.stringify({
+      practiceTime,
+      isTimeChanged: false,
+      note: planNote,
+      ruleId: targetRuleId
+    });
+
+    const newRecs = targetDates.map(ds => ({
+      id: generateUUID(),
+      user_id: state.currentUser.id,
+      user_name: state.currentUser.name,
+      leave_date: ds,
+      leave_type: schedType,
+      session_name: '__SYS_SCHEDULE__',
+      reason: reasonJson,
+      status: '已核准',
+      created_at: new Date().toISOString()
+    }));
+
+    state.leaves.unshift(...newRecs);
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').insert(newRecs);
+    }
   }
 
-  const reasonJson = JSON.stringify({
-    practiceTime,
-    isTimeChanged: false,
-    note: planNote
-  });
-
-  const newRecs = targetDates.map(ds => ({
-    id: generateUUID(),
-    user_id: state.currentUser.id,
-    user_name: state.currentUser.name,
-    leave_date: ds,
-    leave_type: schedType,
-    session_name: '__SYS_SCHEDULE__',
-    reason: reasonJson,
-    status: '已核准',
-    created_at: new Date().toISOString()
-  }));
-
-  state.leaves.unshift(...newRecs);
-  if (state.isSupabaseReady) {
-    await supabaseClient.from('team_leaves').insert(newRecs);
-  }
+  // 完成後重置草稿與編輯狀態
+  state.editingBatchRuleId = null;
+  state.batchScheduleDraft = {
+    isDirty: false,
+    startDate: '',
+    endDate: '',
+    weekdays: null,
+    type: '',
+    practiceTime: '',
+    startTime: '',
+    endTime: '',
+    planNote: ''
+  };
 
   await notifyRealtimePeers();
   renderAll();
-  showToast(`已儲存固定練球計畫，並為 ${targetDates.length} 個日期排定固定「${schedType} (${practiceTime || '常規時段'})」！`, 'success');
+
+  if (isEditing) {
+    showToast(`已更動固定練球區間「${schedType} (${practiceTime})」，並同步日曆行程！`, 'success');
+  } else {
+    showToast(`已新增固定活動「${schedType} (${practiceTime})」，並排入 ${targetDates.length} 個日曆行程！`, 'success');
+  }
 }
 
 async function applyBatchHolidayRange() {
@@ -4696,7 +5266,7 @@ function getDateFitnessRosterBreakdown(dateStr) {
 }
 
 // 渲染「練球與體能行事曆」(供「行事曆與練球排程」管理專區、體能分頁與出席看板共用)
-function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar') {
+function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar') {
   const container = document.getElementById(containerId);
   if (!container || !state.currentUser) return;
 
@@ -4840,10 +5410,16 @@ function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar
         </h3>
         <span class="px-2.5 py-0.5 rounded-md bg-matte-sub border border-matte-border text-matte-ink text-xs font-extrabold">${escapeHtml(termCfg.titleLabel)}</span>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center gap-2 shrink-0 flex-wrap">
         <button type="button" onclick="changeScheduleMonth(-1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">&larr; 上月</button>
         <span class="px-3 py-1.5 rounded-xl bg-[#1c1b18] text-stone-100 text-xs sm:text-sm font-extrabold">${year} 年 ${month} 月</span>
         <button type="button" onclick="changeScheduleMonth(1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">下月 &rarr;</button>
+        ${!isScheduleMgmtTab ? `
+          <button type="button" onclick="openLeaveModal()" class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1 shadow-xs">
+            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+            <span>登記請假/器材</span>
+          </button>
+        ` : ''}
       </div>
     </div>
 
@@ -5193,6 +5769,10 @@ async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null)
   return true;
 }
 
+function renderEquipmentSection() {
+  renderEquipmentCalendarBoard('equipment-calendar-board');
+}
+
 function selectEquipCalendarDate(dateStr) {
   state.selectedEquipDate = dateStr;
   if (dateStr) {
@@ -5204,12 +5784,11 @@ function selectEquipCalendarDate(dateStr) {
       syncAcademicFilterDropdowns();
     }
   }
-  renderEquipmentCalendarBoard('leaves-equipment-calendar-board');
   renderEquipmentCalendarBoard('equipment-calendar-board');
   lucide.createIcons();
 }
 
-function renderEquipmentCalendarBoard(containerId = 'leaves-equipment-calendar-board') {
+function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') {
   const container = document.getElementById(containerId);
   if (!container || !state.currentUser) return;
 
@@ -5473,7 +6052,7 @@ function selectAttendanceDate(dateStr) {
   syncAcademicFilterDropdowns();
   renderAdminScheduleSection();
   renderLeavesSection();
-  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
   renderDashboardSection();
   lucide.createIcons();
 }
@@ -5550,43 +6129,20 @@ function renderTeamAttendanceBoard() {
   const totalSessionsCount = Math.max(1, practiceDatesSet.size);
 
   container.innerHTML = `
-    ${renderAcademicPeriodControlHtml('attendance-board', false)}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-matte-border pb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
           <i data-lucide="users" class="w-4 h-4"></i>
-          <span>全隊出席看板</span>
+          <span>【${escapeHtml(activeDate)}】全隊出席情況看板</span>
         </h3>
-        <span class="px-2.5 py-0.5 rounded-md bg-matte-sub border border-matte-border text-matte-ink text-[11px] font-extrabold">${escapeHtml(termInfo.fullTitle)}</span>
+        <span class="px-2.5 py-0.5 rounded text-[11px] font-extrabold bg-[#1c1b18] text-stone-100">
+          當日出席率 ${attendancePct}%
+        </span>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <label class="text-xs font-bold text-matte-muted">日期：</label>
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="text-xs text-matte-muted font-bold">切換檢視日期：</label>
         <input type="date" value="${escapeHtml(activeDate)}" onchange="selectAttendanceDate(this.value)"
-          class="px-3 py-1.5 rounded-xl bg-matte-sub border border-matte-border text-xs font-bold text-matte-ink" />
-      </div>
-    </div>
-
-    <div class="space-y-1.5">
-      <span class="text-xs font-extrabold text-matte-ink block">📅 紀錄日期（共 ${allDates.length} 日）：</span>
-      <div class="flex flex-wrap gap-1.5">
-        ${allDates.length === 0 ? `<span class="text-xs text-matte-muted">此期間無訓練或請假紀錄</span>` : allDates.slice(0, 14).map(d => {
-          const isSelected = d === activeDate;
-          const leaveCnt = getRealLeaves().filter(l => l.leave_date === d).length;
-          const attCnt = Math.max(0, totalPlayers - new Set(getRealLeaves().filter(l => l.leave_date === d).map(l => l.user_name)).size);
-          return `
-            <button type="button" onclick="selectAttendanceDate('${escapeJsStr(d)}')"
-              class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                isSelected
-                  ? 'bg-[#1c1b18] text-stone-100 shadow-xs ring-2 ring-stone-500'
-                  : 'bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border'
-              }">
-              <span>${d === today ? `今日 (${escapeHtml(d)})` : escapeHtml(d)}</span>
-              <span class="px-1.5 py-0.2 rounded text-[10px] ${
-                isSelected ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-matte-ink'
-              }">出席 ${attCnt} / 請假 ${leaveCnt}</span>
-            </button>
-          `;
-        }).join('')}
+          class="px-2.5 py-1 bg-matte-sub border border-matte-border rounded-xl text-xs font-bold text-matte-ink focus:outline-none focus:ring-1 focus:ring-stone-600" />
       </div>
     </div>
 
@@ -5711,6 +6267,204 @@ function renderTeamAttendanceBoard() {
   `;
 }
 
+function jumpToMemberMakeup(userId, userName) {
+  switchTab('fitness');
+  switchSectionSubTab('fitness', 'makeup');
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if (isAdmin) {
+    const memberEl = document.getElementById('filter-fitness-member');
+    if (memberEl) {
+      if (userId && Array.from(memberEl.options).some(o => o.value === userId)) {
+        memberEl.value = userId;
+      } else if (userName && Array.from(memberEl.options).some(o => o.value === `name:${userName}`)) {
+        memberEl.value = `name:${userName}`;
+      } else {
+        memberEl.value = 'all';
+      }
+      renderFitnessSection();
+    }
+  }
+  lucide.createIcons();
+}
+
+function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
+  const container = document.getElementById(containerId);
+  if (!container || !state.currentUser) return;
+
+  ensureAcademicPeriodInitialized();
+  const ay = state.selectedAcademicYear;
+  const pk = state.selectedTermPeriod;
+  const termCfg = getAcademicPeriodConfig(ay, pk);
+  const isAdmin = state.currentUser.role === 'admin';
+  const playerUsers = getPlayerUsers();
+
+  // 統計所有球員在選定學年度＋期間的請假次數、已補次數、待補次數
+  const statsList = playerUsers.map(u => {
+    const stat = getMakeupStatsForPlayer(u, ay, pk);
+    return {
+      user: u,
+      ...stat
+    };
+  });
+
+  const totalLeaves = statsList.reduce((s, x) => s + x.leaveCount, 0);
+  const totalDone = statsList.reduce((s, x) => s + x.doneCount, 0);
+  const totalPending = statsList.reduce((s, x) => s + x.pendingCount, 0);
+  const totalNeeded = statsList.reduce((s, x) => s + x.needed, 0);
+
+  const myStat = !isAdmin ? getMakeupStatsForPlayer(state.currentUser, ay, pk) : null;
+
+  container.innerHTML = `
+    <!-- 頂部標題與說明 -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-matte-border pb-3">
+      <div>
+        <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
+          <i data-lucide="dumbbell" class="w-4 h-4"></i>
+          <span>【${escapeHtml(termCfg.fullTitle)}】需補體能次數統計</span>
+        </h3>
+        <p class="text-xs text-matte-muted mt-0.5">依請假次數計算應補體能次數（請假 1 次 = 需補體能 1 次），完成補體能並經核對後即折抵</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup');"
+          class="px-3.5 py-1.5 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs">
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          <span>前往補體能專區</span>
+        </button>
+      </div>
+    </div>
+
+    ${myStat ? `
+      <!-- 個人專屬補體能概況卡片（球員檢視） -->
+      <div class="p-4 sm:p-5 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-md bg-[#1c1b18] text-stone-100 text-xs font-bold">${escapeHtml(state.currentUser.name)}</span>
+            <span class="text-xs font-extrabold text-matte-ink">個人補體能儀表板</span>
+            ${state.currentUser.jersey_number ? `<span class="text-xs text-matte-muted">#${escapeHtml(state.currentUser.jersey_number)}</span>` : ''}
+          </div>
+          <div class="flex items-center gap-2">
+            ${myStat.needed > 0 ? `
+              <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup'); openFitnessModal('player_makeup');"
+                class="px-3 py-1.5 rounded-xl bg-matte-card hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-stone-400 text-xs font-extrabold transition flex items-center gap-1 shadow-2xs">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                <span>立即填報補體能</span>
+              </button>
+            ` : `
+              <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold">🎉 目前無需補體能</span>
+            `}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
+            <span class="text-[11px] text-matte-muted block">期間請假 (應補)</span>
+            <span class="text-lg sm:text-xl font-extrabold text-matte-ink">${myStat.leaveCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
+          </div>
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
+            <span class="text-[11px] text-matte-muted block">已完成補體能</span>
+            <span class="text-lg sm:text-xl font-extrabold text-matte-ink">${myStat.doneCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
+          </div>
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
+            <span class="text-[11px] text-matte-muted block">審核中補體能</span>
+            <span class="text-lg sm:text-xl font-extrabold text-matte-muted">${myStat.pendingCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
+          </div>
+          <div class="p-3 rounded-xl bg-matte-card border ${myStat.needed > 0 ? 'border-stone-600 bg-stone-200/60' : 'border-matte-border'}">
+            <span class="text-[11px] font-bold ${myStat.needed > 0 ? 'text-matte-ink' : 'text-matte-muted'} block">尚待補體能</span>
+            <span class="text-lg sm:text-xl font-extrabold ${myStat.needed > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${myStat.needed} <span class="text-xs font-normal">次</span></span>
+          </div>
+        </div>
+
+        ${myStat.leaveDates.length > 0 ? `
+          <div class="pt-2 text-xs flex items-center gap-2 flex-wrap">
+            <span class="text-matte-muted font-bold">請假需補日期：</span>
+            ${myStat.leaveDates.map(d => `
+              <span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-matte-ink font-bold text-[11px]">${escapeHtml(d)}</span>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
+
+    <!-- 全隊統計概況 Chips -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
+        <span class="text-[11px] text-matte-muted block">全隊總請假 (應補)</span>
+        <span class="text-base sm:text-lg font-extrabold text-matte-ink">${totalLeaves} 次</span>
+      </div>
+      <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
+        <span class="text-[11px] text-matte-muted block">全隊已完成補體能</span>
+        <span class="text-base sm:text-lg font-extrabold text-matte-ink">${totalDone} 次</span>
+      </div>
+      <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
+        <span class="text-[11px] text-matte-muted block">全隊待審核回報</span>
+        <span class="text-base sm:text-lg font-extrabold text-matte-muted">${totalPending} 次</span>
+      </div>
+      <div class="p-3 rounded-xl bg-matte-sub border ${totalNeeded > 0 ? 'border-stone-500' : 'border-matte-border'} text-center">
+        <span class="text-[11px] font-bold ${totalNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'} block">全隊總待補次數</span>
+        <span class="text-base sm:text-lg font-extrabold ${totalNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${totalNeeded} 次</span>
+      </div>
+    </div>
+
+    <!-- 全體球員需補體能次數明細卡片清單 -->
+    <div class="space-y-2.5">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs sm:text-sm font-extrabold text-matte-ink flex items-center gap-1.5">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>全體球員補體能狀態名冊 (${statsList.length} 人)</span>
+        </h4>
+        <span class="text-[11px] text-matte-muted">點選球員可查看補體能紀錄或請假細項</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        ${statsList.map(item => {
+          const u = item.user;
+          const isMe = state.currentUser && (u.id === state.currentUser.id || u.name === state.currentUser.name);
+          const hasNeeded = item.needed > 0;
+          return `
+            <div class="p-3.5 rounded-2xl bg-matte-sub border ${isMe ? 'border-stone-600 ring-1 ring-stone-500' : 'border-matte-border'} hover:border-stone-500 transition space-y-2">
+              <div class="flex items-center justify-between gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="font-extrabold text-xs sm:text-sm text-matte-ink truncate">${escapeHtml(u.name)}</span>
+                  ${u.jersey_number ? `<span class="text-[10px] text-matte-muted">#${escapeHtml(u.jersey_number)}</span>` : ''}
+                  ${isMe ? `<span class="px-1.5 py-0.2 rounded text-[10px] bg-[#1c1b18] text-stone-100 font-bold">我</span>` : ''}
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-extrabold ${
+                  hasNeeded ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'
+                }">
+                  ${hasNeeded ? `待補 ${item.needed} 次` : '✓ 無待補'}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-3 gap-1 text-center py-1 rounded-xl bg-matte-card border border-matte-border text-[11px]">
+                <div>
+                  <span class="text-matte-muted block text-[10px]">應補</span>
+                  <span class="font-bold text-matte-ink">${item.leaveCount}</span>
+                </div>
+                <div>
+                  <span class="text-matte-muted block text-[10px]">已補</span>
+                  <span class="font-bold text-matte-ink">${item.doneCount}</span>
+                </div>
+                <div>
+                  <span class="text-matte-muted block text-[10px]">待補</span>
+                  <span class="font-extrabold ${hasNeeded ? 'text-matte-ink underline' : 'text-matte-muted'}">${item.needed}</span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-1 pt-1 text-xs">
+                <button type="button" onclick="drillDownLeavesByMember('${u.id}')"
+                  class="text-[11px] text-matte-muted hover:text-matte-ink font-bold flex items-center gap-1">
+                  <i data-lucide="calendar-off" class="w-3 h-3"></i>
+                  <span>請假 ${item.leaveCount} 次</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderLeavesSection() {
   ensureAcademicPeriodInitialized();
   syncAcademicFilterDropdowns();
@@ -5720,10 +6474,10 @@ function renderLeavesSection() {
   const isAdmin = state.currentUser.role === 'admin';
 
   renderTeamAttendanceBoard();
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
 
   // 全隊請假與出席紀錄開放所有使用者檢視，並依選定的「學年度＋期間」過濾
   let list = getRealLeaves().filter(l => isDateInAcademicPeriod(l.leave_date, state.selectedAcademicYear, state.selectedTermPeriod));
-  renderEquipmentCalendarBoard('leaves-equipment-calendar-board');
 
   if (statusFilter !== 'all') {
     list = list.filter(l => l.leave_type === statusFilter);
@@ -5741,52 +6495,47 @@ function renderLeavesSection() {
     );
   }
 
+  const calendarEl = document.getElementById('leaves-schedule-calendar');
   const attendanceEl = document.getElementById('team-attendance-board');
-  const equipEl = document.getElementById('leaves-equipment-calendar-board');
+  const actionCard = document.getElementById('leaves-action-filter-card');
+  const filterGrid = document.getElementById('leaves-filter-grid');
   const overviewContainer = document.getElementById('leaves-overview-container');
   const detailContainer = document.getElementById('leaves-list-container');
   if (!overviewContainer || !detailContainer) return;
 
-  const activeLeaveSub = state.leavesSubTab || 'attendance';
+  const validSubs = ['calendar', 'leave'];
+  const activeLeaveSub = validSubs.includes(state.leavesSubTab) ? state.leavesSubTab : 'calendar';
+  state.leavesSubTab = activeLeaveSub;
+
   const leaveSubTabs = [
     {
-      id: 'attendance',
-      badge: '區塊一',
-      title: '👥 全隊出席看板',
-      desc: '查看當日出席、請假名單與期間出席率',
-      icon: 'users'
+      id: 'calendar',
+      title: '🗓️ 球隊行事曆',
+      desc: '每日排程、固定練球日程與完成進度',
+      icon: 'calendar'
     },
     {
-      id: 'equipment',
-      badge: '區塊二',
-      title: '📦 借還器材日曆',
-      desc: '登記當日借還器材與每月達標統計',
-      icon: 'package'
-    },
-    {
-      id: 'overview',
-      badge: '區塊三',
-      title: '📊 請假統計彙整',
-      desc: '依場次與球員彙整請假次數',
-      icon: 'pie-chart'
-    },
-    {
-      id: 'list',
-      badge: '區塊四',
-      title: `📋 請假明細 (${list.length})`,
-      desc: '各筆請假單之假別、時段與事由',
+      id: 'leave',
+      title: `📋 請假與全隊出席 (${list.length})`,
+      desc: '登記請假、全隊出席情況看板與請假明細',
       icon: 'calendar-off'
     }
   ];
 
-  renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '請假與出席', leaveSubTabs, activeLeaveSub);
+  renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '球隊行事曆與請假', leaveSubTabs, activeLeaveSub);
 
-  if (attendanceEl) attendanceEl.classList.toggle('hidden', activeLeaveSub !== 'attendance');
-  if (equipEl) equipEl.classList.toggle('hidden', activeLeaveSub !== 'equipment');
-  overviewContainer.classList.toggle('hidden', activeLeaveSub !== 'overview');
-  detailContainer.classList.toggle('hidden', activeLeaveSub !== 'list');
+  if (calendarEl) calendarEl.classList.toggle('hidden', activeLeaveSub !== 'calendar');
+  if (attendanceEl) attendanceEl.classList.toggle('hidden', activeLeaveSub !== 'leave');
+  if (actionCard) actionCard.classList.toggle('hidden', activeLeaveSub !== 'leave');
+  if (filterGrid) filterGrid.classList.toggle('hidden', activeLeaveSub !== 'leave');
+  overviewContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
+  detailContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
 
-  if (activeLeaveSub === 'overview') {
+  if (activeLeaveSub !== 'leave') {
+    return;
+  }
+
+  {
     const bySession = groupLeavesBySession(list);
     const byMember = groupLeavesByMember(list);
 
@@ -5840,11 +6589,6 @@ function renderLeavesSection() {
         </div>
       </div>
     `;
-    return;
-  }
-
-  if (activeLeaveSub !== 'list') {
-    return;
   }
 
   if (list.length === 0) {
@@ -5992,14 +6736,12 @@ function renderFinancesSection() {
   renderSubTabBannerHtml('finances-subtab-bar', 'finances', '經費收支', [
     {
       id: 'overview',
-      badge: '區塊一',
       icon: 'pie-chart',
       title: '📊 科目收支彙整',
       subtitle: `共 ${byCategory.length} 個會計科目`
     },
     {
       id: 'list',
-      badge: '區塊二',
       icon: 'receipt',
       title: `📋 收支流水帳 (${list.length})`,
       subtitle: '逐筆收支紀錄與即時結餘'
@@ -6122,14 +6864,12 @@ function renderSettingsSection() {
   const settingsTabs = [
     {
       id: 'personal',
-      badge: '區塊一',
       icon: 'user-check',
       title: '👤 個人資料',
       subtitle: `${state.currentUser.name} (@${state.currentUser.username})`
     },
     {
       id: 'password',
-      badge: '區塊二',
       icon: 'key-round',
       title: '🔑 修改密碼',
       subtitle: '更新登入密碼'
@@ -6138,7 +6878,6 @@ function renderSettingsSection() {
   if (isAdmin) {
     settingsTabs.push({
       id: 'members',
-      badge: '區塊三',
       icon: 'users',
       title: `👥 成員管理 (${state.users.length})`,
       subtitle: '新增帳號與修改成員權限'
