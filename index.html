@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>VOLLEYBALL TEAM｜排球隊管理系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Noto Sans TC & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '"Noto Sans TC"', 'sans-serif'],
+          },
+          colors: {
+            matte: {
+              bg: '#ebe9e4',       /* 柔和低對比暖灰底色，完全不刺眼 */
+              card: '#f7f6f2',     /* 霧面紙感淺灰白卡片 */
+              sub: '#efede8',      /* 次級區塊霧灰 */
+              border: '#d6d3cd',   /* 柔和石紋邊框 */
+              ink: '#1c1b18',      /* 柔和炭黑主字色 */
+              muted: '#66635b',    /* 柔和深灰次字色 */
+              dark: '#181816',     /* 側邊欄與主按鈕霧黑 */
+              darksub: '#262522'   /* 霧黑次層 */
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 確保手機版與電腦版皆不會產生橫向捲軸或跑版 */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      background-color: #ebe9e4;
+      color: #1c1b18;
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    }
+    /* 防止 iOS Safari 點擊輸入框時自動放大畫面導致版面跑掉 */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+    @media (min-width: 768px) {
+      input, select, textarea {
+        font-size: 14px !important;
+      }
+    }
+    /* 手機底部導覽列安全區域適配 */
+    .pb-safe {
+      padding-bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+    }
+    .bottom-nav-safe {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    /* 排球場地網格微紋理背景 */
+    .court-pattern {
+      background-image: radial-gradient(#c7c4bc 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    /* 即時脈衝動畫 (柔和不刺眼) */
+    @keyframes pulse-soft {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.25); opacity: 0.45; }
+    }
+    .live-dot {
+      animation: pulse-soft 2.4s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-matte-bg text-matte-ink court-pattern">
+
+  <!-- 全域 Toast 通知容器 -->
+  <div id="toast-container" class="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- 圖片全螢幕檢視燈箱 (Lightbox) -->
+  <div id="modal-lightbox" onclick="closeModal('modal-lightbox')" class="hidden fixed inset-0 z-[95] bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center p-4">
+    <div class="max-w-3xl w-full flex flex-col items-center gap-3" onclick="event.stopPropagation()">
+      <div class="w-full flex items-center justify-between text-stone-200 px-1">
+        <span id="lightbox-caption" class="font-bold text-sm truncate">照片檢視</span>
+        <button type="button" onclick="closeModal('modal-lightbox')" class="px-3 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-xs font-bold text-stone-100">
+          關閉 ✕
+        </button>
+      </div>
+      <img id="lightbox-img" src="" alt="Preview" class="max-h-[80dvh] w-auto max-w-full rounded-2xl border border-stone-700 shadow-2xl object-contain bg-stone-900" />
+    </div>
+  </div>
+
+  <!-- ==================== 1. 登入畫面 (黑白極簡 × 排球主題，僅限登入，註冊由管理者後台建立) ==================== -->
+  <div id="auth-screen" class="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-[#1c1b18] relative overflow-hidden">
+    <!-- 背景排球弧線裝飾 -->
+    <svg class="absolute -right-24 -bottom-24 w-96 h-96 text-zinc-800/45 pointer-events-none" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="100" cy="100" r="88" />
+      <path d="M18 75 C65 35, 135 35, 182 75" />
+      <path d="M15 115 C70 75, 130 75, 185 115" />
+      <path d="M100 12 C125 65, 125 135, 100 188" />
+      <path d="M55 22 C85 80, 75 140, 45 178" />
+      <path d="M145 22 C115 80, 125 140, 155 178" />
+    </svg>
+
+    <div class="w-full max-w-md bg-matte-card rounded-2xl shadow-2xl border border-stone-700/40 overflow-hidden relative z-10">
+      <!-- 頂部排球品牌區 -->
+      <div class="bg-[#181816] px-6 py-6 text-stone-100 text-center border-b border-stone-800">
+        <div class="w-16 h-16 rounded-full bg-stone-800 border-2 border-stone-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
+          <svg class="w-10 h-10 text-stone-200" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="32" cy="32" r="26" />
+            <path d="M32 6 C38 20, 38 44, 32 58" />
+            <path d="M9 20 C24 14, 42 18, 55 20" />
+            <path d="M7 35 C24 27, 42 30, 57 35" />
+            <path d="M14 50 C25 41, 41 41, 50 50" />
+            <path d="M20 9 C18 24, 18 40, 22 55" />
+            <path d="M44 9 C46 24, 46 40, 42 55" />
+          </svg>
+        </div>
+        <div class="inline-block px-2.5 py-0.5 rounded bg-stone-800 text-stone-300 text-[10px] font-bold tracking-widest uppercase mb-1">
+          VOLLEYBALL CLUB SYSTEM
+        </div>
+        <h1 class="text-xl md:text-2xl font-extrabold tracking-tight text-stone-100">排球隊雲端管理系統</h1>
+        <p class="text-xs text-stone-400 mt-1">體能與補體能・隊費代繳・請假與全隊出席・經費公開</p>
+        <!-- 即時連線狀態標籤 -->
+        <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900 border border-stone-700 text-xs font-medium text-stone-300">
+          <span id="auth-db-dot" class="w-2 h-2 rounded-full bg-stone-300 live-dot"></span>
+          <span id="auth-db-status">Supabase 雲端即時連線中</span>
+        </div>
+      </div>
+
+      <!-- 登入表單 -->
+      <form id="login-form" onsubmit="handleLogin(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-matte-muted mb-1.5">登入帳號 (Username)</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 text-matte-muted absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="login-username" required placeholder="請輸入帳號 (如 admin001 或 player001)"
+              class="w-full pl-10 pr-4 py-2.5 bg-matte-sub border border-matte-border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-700 focus:bg-matte-card transition text-matte-ink" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-matte-muted mb-1.5">登入密碼 (Password)</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-matte-muted absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="password" id="login-password" required placeholder="請輸入密碼 (如 ntub001)"
+              class="w-full pl-10 pr-4 py-2.5 bg-matte-sub border border-matte-border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-700 focus:bg-matte-card transition text-matte-ink" />
+          </div>
+        </div>
+
+        <button type="submit" id="login-submit-btn"
+          class="w-full py-3 bg-[#1c1b18] hover:bg-stone-800 active:bg-black text-stone-100 font-bold rounded-xl shadow transition flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>登入排球隊系統</span>
+        </button>
+
+        <div class="p-2.5 rounded-xl bg-matte-sub border border-matte-border text-[11px] text-matte-muted text-center">
+          🔒 已內建全隊 20 位球員 (<code>player001</code>~<code>player020</code>) 與管理員 (<code>admin001</code>) 帳號及 31 筆過往經費資料。
+        </div>
+
+        <!-- 快速體驗與預設帳號提示 -->
+        <div class="pt-2 border-t border-matte-border">
+          <p class="text-xs text-matte-muted font-semibold mb-2 text-center">快速帶入帳號測試（點擊即可填入）</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="fillDemoAccount('admin001', 'ntubad001')"
+              class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-100 text-xs font-bold transition">
+              <i data-lucide="shield" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>管理者 (admin001)</span>
+            </button>
+            <button type="button" onclick="fillDemoAccount('player001', 'ntub001')"
+              class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-matte-sub hover:bg-stone-300/70 text-matte-ink border border-matte-border text-xs font-bold transition">
+              <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>球員 (蔡佳ㄣ)</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- 底部 Supabase 狀態與建表輔助按鈕 -->
+      <div class="bg-matte-sub px-6 py-3 border-t border-matte-border flex items-center justify-between text-xs text-matte-muted">
+        <span class="truncate">🏐 Supabase: mtorunczoyjvhmufaast</span>
+        <button type="button" onclick="openSqlSetupModal()" class="text-matte-ink hover:underline font-bold flex items-center gap-1 shrink-0">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i>
+          <span>資料庫建表設定</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 主系統畫面 (登入後) ==================== -->
+  <div id="app-screen" class="hidden min-h-screen w-full flex flex-col md:flex-row">
+
+    <!-- 【電腦版】左側固定導覽列 (霧黑極簡排球風格) -->
+    <aside class="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 bg-[#181816] text-stone-200 z-30 border-r border-stone-800">
+      <!-- 品牌標題 -->
+      <div class="p-5 border-b border-stone-800 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-stone-800 border border-stone-600 flex items-center justify-center shrink-0">
+          <svg class="w-6 h-6 text-stone-200" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3">
+            <circle cx="32" cy="32" r="26" />
+            <path d="M32 6 C38 20, 38 44, 32 58" />
+            <path d="M9 22 C24 15, 42 18, 55 22" />
+            <path d="M7 38 C24 30, 42 32, 57 38" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h2 class="font-extrabold text-base tracking-tight text-stone-100 truncate">排球隊管理系統</h2>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span id="sidebar-live-dot" class="w-2 h-2 rounded-full bg-stone-300 live-dot shrink-0"></span>
+            <span id="sidebar-live-text" class="text-[11px] text-stone-400 truncate">Supabase 即時同步中</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 登入者資訊卡 -->
+      <div class="p-4 m-3 rounded-xl bg-[#242320] border border-stone-700/70">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p id="user-display-name" class="font-bold text-sm text-stone-100 truncate">載入中...</p>
+            <p id="user-display-meta" class="text-xs text-stone-400 truncate">#00</p>
+          </div>
+          <span id="user-role-badge" class="px-2.5 py-1 rounded-md text-[11px] font-bold shrink-0 bg-stone-100 text-stone-900">
+            管理者
+          </span>
+        </div>
+        <div id="user-privacy-hint" class="mt-2 pt-2 border-t border-stone-700/60 text-[11px] text-stone-400">
+          權限：可檢視全隊粗略與細項資料
+        </div>
+      </div>
+
+      <!-- 電腦版導覽選單 -->
+      <nav id="desktop-nav" class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+        <!-- 由 JS 渲染 -->
+      </nav>
+
+      <!-- 底部工具與登出 -->
+      <div class="p-4 border-t border-stone-800 space-y-2">
+        <button type="button" onclick="manualRefreshData()" class="w-full py-2 px-3 rounded-xl bg-[#242320] hover:bg-stone-700 text-stone-200 text-xs font-semibold flex items-center justify-center gap-2 transition border border-stone-700/60">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="sync-spin-icon"></i>
+          <span>立即同步最新資料</span>
+        </button>
+        <button type="button" onclick="openSqlSetupModal()" class="w-full py-2 px-3 rounded-xl bg-transparent hover:bg-[#242320] text-stone-400 hover:text-stone-200 text-xs font-medium flex items-center justify-center gap-2 transition">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i>
+          <span>Supabase 資料表檢測</span>
+        </button>
+        <button type="button" onclick="handleLogout()" class="w-full py-2 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold flex items-center justify-center gap-2 transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>登出切換帳號</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 【手機版】頂部固定狀態列 (Mobile Sticky Header) -->
+    <header class="md:hidden sticky top-0 z-30 bg-[#181816] text-stone-100 px-3.5 py-2.5 shadow-md flex items-center justify-between gap-2 border-b border-stone-800">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-full bg-stone-800 border border-stone-600 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-stone-200" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3">
+            <circle cx="32" cy="32" r="26" />
+            <path d="M32 6 C38 20, 38 44, 32 58" />
+            <path d="M9 22 C24 15, 42 18, 55 22" />
+            <path d="M7 38 C24 30, 42 32, 57 38" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span id="mobile-user-name" class="font-bold text-sm truncate text-stone-100">排球隊管理</span>
+            <span id="mobile-role-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 bg-stone-200 text-stone-900">
+              管理者
+            </span>
+          </div>
+          <div class="flex items-center gap-1 text-[11px] text-stone-400">
+            <span id="mobile-live-dot" class="w-1.5 h-1.5 rounded-full bg-stone-300 live-dot shrink-0"></span>
+            <span id="mobile-live-text" class="truncate">即時同步中</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" onclick="manualRefreshData()" title="立即同步"
+          class="p-2 rounded-lg bg-stone-800 text-stone-200 active:bg-stone-700">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+        <button type="button" onclick="openSqlSetupModal()" title="資料庫狀態"
+          class="p-2 rounded-lg bg-stone-800 text-stone-200 active:bg-stone-700">
+          <i data-lucide="database" class="w-4 h-4"></i>
+        </button>
+        <button type="button" onclick="handleLogout()" title="登出"
+          class="p-2 rounded-lg bg-stone-800 text-stone-300 active:bg-stone-700">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主內容區 (Main Content Area) -->
+    <main class="flex-1 md:ml-64 lg:ml-72 w-full min-w-0 pb-safe md:pb-10">
+
+      <!-- 若 Supabase 尚未建立資料表時的頂部提示橫幅 -->
+      <div id="supabase-setup-banner" class="hidden bg-stone-200 border-b border-stone-300 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div class="flex items-start gap-2.5 text-stone-800 text-xs sm:text-sm">
+            <i data-lucide="database" class="w-5 h-5 text-stone-700 shrink-0 mt-0.5"></i>
+            <div>
+              <span class="font-bold">提示：您的 Supabase 尚未執行初始化建表語法：</span>
+              <span>目前暫以本機即時快取運作。點擊右側按鈕複製 SQL 貼上至 Supabase 執行，即可啟用跨手機/電腦永久雲端同步！</span>
+            </div>
+          </div>
+          <button type="button" onclick="openSqlSetupModal()"
+            class="px-3.5 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold shrink-0 shadow-sm transition">
+            一鍵複製 SQL 建表語法
+          </button>
+        </div>
+      </div>
+
+      <!-- 頁面容器 -->
+      <div class="max-w-6xl mx-auto p-3.5 sm:p-5 md:p-7 space-y-4 sm:space-y-5">
+
+        <!-- 頂部頁面標題 + 管理者專屬「粗略項目 ↔ 細項明細」切換器 -->
+        <div class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 id="page-title" class="text-lg sm:text-xl font-extrabold text-matte-ink truncate">排球隊總覽看板</h1>
+              <span id="scope-indicator-pill" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-matte-sub border border-matte-border text-matte-ink">
+                🏐 全隊視角
+              </span>
+            </div>
+            <p id="page-subtitle" class="text-xs sm:text-sm text-matte-muted mt-0.5">即時掌握排球隊體能與補體能進度、隊費與代繳費用、請假與全隊出席情況、球隊經費</p>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between lg:justify-end gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-matte-border shrink-0">
+            <!-- 管理者專屬：粗略項目 vs 細項明細 一鍵切換器 -->
+            <div id="admin-view-mode-switcher" class="hidden inline-flex items-center bg-matte-sub p-1 rounded-xl border border-matte-border">
+              <button type="button" id="btn-mode-summary" onclick="setAdminViewMode('summary')"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                <span>粗略項目 (彙整)</span>
+              </button>
+              <button type="button" id="btn-mode-detail" onclick="setAdminViewMode('detail')"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                <span>細項明細 (逐筆)</span>
+              </button>
+            </div>
+
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-matte-sub border border-matte-border text-xs font-medium text-matte-muted">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-matte-ink"></i>
+              <span id="last-sync-time">剛剛更新</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- ==================== TAB 1: 總覽看板 (Dashboard) ==================== -->
+        <section id="tab-dashboard" class="space-y-4 sm:space-y-5">
+          <!-- KPI 統計卡片區 -->
+          <div id="dashboard-stats-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+
+          <!-- 近期體能 & 隊費代繳 -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-matte-ink flex items-center gap-2 text-sm sm:text-base">
+                  <i data-lucide="activity" class="w-4 h-4 text-matte-ink"></i>
+                  <span id="dash-fitness-heading">近期排球體能狀況</span>
+                </h3>
+                <button onclick="switchTab('fitness')" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">進入體能區 &rarr;</button>
+              </div>
+              <div id="dash-fitness-list" class="space-y-2.5 flex-1"></div>
+            </div>
+
+            <div class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-matte-ink flex items-center gap-2 text-sm sm:text-base">
+                  <i data-lucide="wallet" class="w-4 h-4 text-matte-ink"></i>
+                  <span id="dash-fees-heading">近期隊費與代繳費用</span>
+                </h3>
+                <button onclick="switchTab('fees')" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">進入隊費區 &rarr;</button>
+              </div>
+              <div id="dash-fees-list" class="space-y-2.5 flex-1"></div>
+            </div>
+          </div>
+
+          <!-- 請假動態 & 球隊經費收支概況 (所有成員皆可檢視經費) -->
+          <div id="dash-bottom-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-matte-ink flex items-center gap-2 text-sm sm:text-base">
+                  <i data-lucide="calendar-off" class="w-4 h-4 text-matte-ink"></i>
+                  <span id="dash-leaves-heading">最新請假與全隊出席動態</span>
+                </h3>
+                <button onclick="switchTab('leaves')" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">進入請假與出席區 &rarr;</button>
+              </div>
+              <div id="dash-leaves-list" class="space-y-2.5 flex-1"></div>
+            </div>
+
+            <!-- 球隊經費收支概況 (使用者與管理者皆可查看) -->
+            <div id="dash-finance-card" class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-matte-ink flex items-center gap-2 text-sm sm:text-base">
+                  <i data-lucide="landmark" class="w-4 h-4 text-matte-ink"></i>
+                  <span>排球隊經費收支概況</span>
+                </h3>
+                <button onclick="switchTab('finances')" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">查看全部經費 &rarr;</button>
+              </div>
+              <div id="dash-finance-summary" class="space-y-2.5 flex-1"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== TAB 2: 體能與補體能紀錄 (Fitness - 體能與補體能合一、列為動作欄為組數、可點選人名與日期查看) ==================== -->
+        <section id="tab-fitness" class="hidden space-y-4">
+          <div class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="font-bold text-base text-matte-ink" id="fitness-section-title">排球隊體能與補體能紀錄</h2>
+                <p id="fitness-role-hint" class="text-xs text-matte-muted">體能與補體能整合管理（固定重訓與間歇格式：列為動作、欄為第一/二/三組，並支援補體能連結與照片）</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- 一般球員可主動新增補體能紀錄 -->
+                <div id="fitness-player-actions" class="hidden flex-wrap items-center gap-2">
+                  <button type="button" onclick="openFitnessModal('player_makeup')"
+                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                    <i data-lucide="dumbbell" class="w-4 h-4"></i>
+                    <span>新增補體能紀錄</span>
+                  </button>
+                </div>
+                <!-- 管理者指派固定格式體能 / 補體能按鈕 -->
+                <div id="fitness-admin-actions" class="flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="openFitnessModal('single')"
+                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                    <i data-lucide="user-check" class="w-4 h-4"></i>
+                    <span>單別指派體能 / 補體能</span>
+                  </button>
+                  <button type="button" id="btn-batch-fitness" onclick="openFitnessModal('batch')"
+                    class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-matte-sub hover:bg-stone-300/80 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    <span>指派全隊體能 (預設未完成)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 篩選列 -->
+            <div id="fitness-filter-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-matte-border">
+              <select id="filter-fitness-status" onchange="renderFitnessSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部狀態 (體能 + 補體能)</option>
+                <option value="pending">○ 僅顯示未完成 / 待補體能</option>
+                <option value="done">● 僅顯示已完成 / 已補體能</option>
+                <option value="makeup">🏋️ 僅顯示補體能紀錄</option>
+              </select>
+              <select id="filter-fitness-member" onchange="onSelectFitnessMemberDropdown(this.value)"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部球員</option>
+              </select>
+              <input type="text" id="filter-fitness-search" oninput="renderFitnessSection()" placeholder="搜尋日期、人名、補體能連結或動作數據..."
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm text-matte-ink" />
+            </div>
+          </div>
+
+          <!-- 體能完成度進度條 -->
+          <div id="fitness-progress-bar" class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+
+          <!-- 點選人名 × 點選日期 互動式「列為動作、欄為第一/二/三組」檢視面板 -->
+          <div id="fitness-matrix-viewer" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+
+          <!-- 管理者：粗略項目區塊 -->
+          <div id="fitness-summary-container" class="hidden space-y-4"></div>
+
+          <!-- 細項明細列表 -->
+          <div id="fitness-list-container" class="space-y-3"></div>
+        </section>
+
+        <!-- ==================== TAB 3: 隊費與代繳費用 (Fees) ==================== -->
+        <section id="tab-fees" class="hidden space-y-4">
+          <div class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="font-bold text-base text-matte-ink" id="fees-section-title">排球隊費與代繳費用</h2>
+                <p id="fees-role-hint" class="text-xs text-matte-muted">管理學期隊費、球衣訂製代繳、盃賽報名費代繳與護具團購代繳</p>
+              </div>
+              <div id="fees-admin-actions" class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="openFeeModal('single')"
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  <span>單筆新增費用</span>
+                </button>
+                <button type="button" id="btn-batch-fee" onclick="openFeeModal('batch')"
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-matte-sub hover:bg-stone-300/80 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                  <span>全隊批發收費 (隊費/代繳)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 篩選列 -->
+            <div id="fees-filter-grid" class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-2 border-t border-matte-border">
+              <select id="filter-fee-type" onchange="renderFeesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部類別 (隊費 + 代繳費用)</option>
+                <option value="隊費">▪ 隊費</option>
+                <option value="代繳費用">▫ 代繳費用</option>
+              </select>
+              <select id="filter-fee-status" onchange="renderFeesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部繳費狀態</option>
+                <option value="unpaid">○ 尚未完成繳費</option>
+                <option value="paid">● 已完成繳費</option>
+              </select>
+              <select id="filter-fee-member" onchange="renderFeesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部球員</option>
+              </select>
+              <input type="text" id="filter-fee-search" oninput="renderFeesSection()" placeholder="搜尋費用名稱或備註..."
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm text-matte-ink" />
+            </div>
+          </div>
+
+          <!-- 收費統計摘要 -->
+          <div id="fees-summary-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+
+          <!-- 管理者：粗略項目區塊 -->
+          <div id="fees-overview-container" class="hidden space-y-4"></div>
+
+          <!-- 隊費與代繳細項列表 -->
+          <div id="fees-list-container" class="space-y-2.5"></div>
+        </section>
+
+        <!-- ==================== TAB 4: 請假與全隊出席 (Leaves - 獨立請假功能 + 全隊出席情況公開) ==================== -->
+        <section id="tab-leaves" class="hidden space-y-4">
+          <div class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h2 class="font-bold text-base text-matte-ink" id="leaves-section-title">排球隊請假登記與全隊出席情況</h2>
+                  <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[11px] font-bold">全隊出席公開</span>
+                </div>
+                <p id="leaves-role-hint" class="text-xs text-matte-muted mt-0.5">請假免審核批准（需附請假證明照片）；一般使用者與管理者皆可查看全隊出席名單與請假狀況（補體能已整合至「體能」專區）</p>
+              </div>
+              <button type="button" id="btn-open-leave-modal" onclick="openLeaveModal()"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                <span>登記請假單 (附證明照片)</span>
+              </button>
+            </div>
+
+            <!-- 篩選列 (一般球員與管理者皆可篩選查看全隊請假紀錄) -->
+            <div id="leaves-filter-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-matte-border">
+              <select id="filter-leave-status" onchange="renderLeavesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部假別</option>
+                <option value="事假">事假</option>
+                <option value="病假">病假</option>
+                <option value="傷假">傷假 (運動傷害復健)</option>
+                <option value="公假">公假</option>
+                <option value="課業/實習">課業 / 實習衝突</option>
+              </select>
+              <select id="filter-leave-member" onchange="renderLeavesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部球員</option>
+              </select>
+              <input type="text" id="filter-leave-search" oninput="renderLeavesSection()" placeholder="搜尋球員姓名、假別、練球時段或事由..."
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm text-matte-ink" />
+            </div>
+          </div>
+
+          <!-- 全隊出席情況看板 (一般使用者與管理者皆可查看！可選日期查看出席名單、請假名單與全隊出席率) -->
+          <div id="team-attendance-board" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
+
+          <!-- 管理者：請假粗略項目彙整 -->
+          <div id="leaves-overview-container" class="hidden space-y-4"></div>
+
+          <!-- 請假細項列表 -->
+          <div id="leaves-list-container" class="space-y-3"></div>
+        </section>
+
+        <!-- ==================== TAB 5: 球隊經費收支狀況 (Finances - 全員皆可查看，管理者可記帳編輯) ==================== -->
+        <section id="tab-finances" class="hidden space-y-4">
+          <div class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h2 class="font-bold text-base text-matte-ink">排球隊經費收支公開帳本</h2>
+                  <span id="finance-role-tag" class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[11px] font-bold">全隊公開透明</span>
+                </div>
+                <p class="text-xs text-matte-muted mt-0.5">公開透明記錄每一筆排球隊收入與支出（買排球、球網、場地費、報名費、隊費入帳等）</p>
+              </div>
+              <!-- 僅管理者顯示新增收支按鈕 -->
+              <div id="finance-admin-buttons" class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="openFinanceModal('支出')"
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                  <i data-lucide="minus-circle" class="w-4 h-4"></i>
+                  <span>記一筆支出</span>
+                </button>
+                <button type="button" onclick="openFinanceModal('收入')"
+                  class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                  <span>記一筆收入</span>
+                </button>
+                <button type="button" onclick="exportFinancesCSV()"
+                  class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-matte-sub hover:bg-stone-300/80 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  <span>匯出 CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 篩選列 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-matte-border">
+              <select id="filter-finance-type" onchange="renderFinancesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部收支類型 (收入 + 支出)</option>
+                <option value="支出">－ 僅顯示支出</option>
+                <option value="收入">＋ 僅顯示收入</option>
+              </select>
+              <select id="filter-finance-category" onchange="renderFinancesSection()"
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
+                <option value="all">全部科目分類</option>
+                <option value="期初結轉/存款">期初結轉/存款</option>
+                <option value="隊費收入">隊費收入</option>
+                <option value="代繳收支">球衣/大專盃/團購代繳收支</option>
+                <option value="比賽報名">盃賽報名 / 住宿 / 教練車費</option>
+                <option value="場地租借">場地租借 / 友誼賽場地</option>
+                <option value="贊助補助">學校經費補助 / 獎金</option>
+                <option value="器材採購">器材採購 (排球/球車/標竿)</option>
+                <option value="防護補給">運動防護 (白貼/肌貼/冰塊/飲水)</option>
+                <option value="其他雜支">其他雜支 (保險/影印/手續費/利息)</option>
+              </select>
+              <input type="text" id="filter-finance-search" oninput="renderFinancesSection()" placeholder="搜尋摘要、經手人或備註..."
+                class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm text-matte-ink" />
+            </div>
+          </div>
+
+          <!-- 經費三大核心指標卡 -->
+          <div id="finance-summary-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+
+          <!-- 粗略科目分類彙整區 -->
+          <div id="finance-overview-container" class="hidden space-y-4"></div>
+
+          <!-- 經費收支細項流水帳 -->
+          <div id="finance-list-container" class="space-y-2.5"></div>
+        </section>
+
+        <!-- ==================== TAB 6: 設定與帳號管理 (Settings - 使用者僅能改密碼；管理者可註冊帳號及改使用者姓名/帳號) ==================== -->
+        <section id="tab-settings" class="hidden space-y-5">
+          <!-- 區塊一：個人帳號資訊與修改密碼 (使用者與管理者皆有) -->
+          <div class="bg-matte-card p-4 sm:p-6 rounded-2xl shadow-sm border border-matte-border space-y-4">
+            <div class="flex items-center justify-between border-b border-matte-border pb-3">
+              <div>
+                <h2 class="font-extrabold text-base text-matte-ink flex items-center gap-2">
+                  <i data-lucide="key-round" class="w-4 h-4"></i>
+                  <span>個人帳號設定與修改密碼</span>
+                </h2>
+                <p id="settings-personal-hint" class="text-xs text-matte-muted mt-0.5">
+                  使用者僅能修改個人登入密碼；姓名與登入帳號僅限管理者可變更
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <!-- 目前帳號基本資料卡 (唯讀顯示) -->
+              <div class="p-4 rounded-xl bg-matte-sub border border-matte-border space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-matte-muted">目前登入身分</span>
+                  <span id="settings-role-pill" class="px-2.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold">球員</span>
+                </div>
+                <div>
+                  <label class="block text-[11px] text-matte-muted">姓名 (僅管理者可修改)</label>
+                  <p id="settings-my-name" class="font-extrabold text-sm sm:text-base text-matte-ink mt-0.5">-</p>
+                </div>
+                <div>
+                  <label class="block text-[11px] text-matte-muted">登入帳號 (僅管理者可修改)</label>
+                  <p id="settings-my-username" class="font-mono font-bold text-sm text-matte-ink mt-0.5">-</p>
+                </div>
+                <div>
+                  <label class="block text-[11px] text-matte-muted">背號 / 排球位置 (僅管理者可修改)</label>
+                  <p id="settings-my-jersey" class="font-semibold text-sm text-matte-ink mt-0.5">-</p>
+                </div>
+              </div>
+
+              <!-- 修改個人密碼表單 -->
+              <form id="form-change-password" onsubmit="submitChangeMyPassword(event)" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-matte-muted mb-1">目前舊密碼 *</label>
+                  <input type="password" id="pwd-old" required placeholder="請輸入目前的密碼"
+                    class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-matte-muted mb-1">設定新密碼 *</label>
+                    <input type="password" id="pwd-new" required placeholder="輸入新密碼"
+                      class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-matte-muted mb-1">確認新密碼 *</label>
+                    <input type="password" id="pwd-confirm" required placeholder="再次輸入新密碼"
+                      class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+                  </div>
+                </div>
+                <button type="submit"
+                  class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5">
+                  <i data-lucide="check" class="w-4 h-4"></i>
+                  <span>更新我的密碼</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- 區塊二：管理者專屬「註冊新成員帳號 & 修改使用者姓名/帳號」專區 (一般使用者完全隱藏) -->
+          <div id="admin-account-mgmt-section" class="hidden space-y-4">
+            <div class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="font-extrabold text-base text-matte-ink">全隊帳號管理與註冊新成員</h2>
+                  <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[11px] font-bold">管理者專屬權限</span>
+                </div>
+                <p class="text-xs text-matte-muted mt-0.5">僅管理者可在此註冊新帳號，或點擊成員卡片的「編輯帳號/姓名」修改任何使用者的姓名、登入帳號、密碼與角色</p>
+              </div>
+              <button type="button" onclick="openMemberModal()"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition shrink-0">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                <span>註冊新成員帳號</span>
+              </button>
+            </div>
+
+            <div id="members-list-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- 【手機版】底部固定導覽列 (Mobile Bottom App Bar) -->
+    <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 inset-x-0 bg-[#181816] text-stone-300 border-t border-stone-800 z-40 shadow-[0_-4px_14px_rgba(0,0,0,0.18)] bottom-nav-safe">
+      <!-- 由 JS 渲染 -->
+    </nav>
+  </div>
+
+  <!-- ==================== 通用彈跳視窗 (Modals - 霧面黑白灰風格) ==================== -->
+
+  <!-- 1. 管理者指派固定格式體能紀錄 Modal (預設未完成，統一固定格式) -->
+  <div id="modal-fitness" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 id="modal-fitness-title" class="font-extrabold text-base">指派排球隊固定格式體能任務</h3>
+        <button type="button" onclick="closeModal('modal-fitness')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-fitness" onsubmit="submitFitnessForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="fitness-mode" value="batch" />
+        <div id="fitness-member-select-wrap">
+          <label class="block text-xs font-bold text-matte-muted mb-1">指派對象球員 (不含管理者) *</label>
+          <select id="fitness-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl"></select>
+        </div>
+        <div id="fitness-batch-hint" class="hidden p-3 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-ink font-medium">
+          🏐 全隊指派模式：系統將自動為全隊所有球員（不含管理者）建立此日期的「固定格式重訓與間歇體能表」（預設「○ 尚未完成」）！
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">項目類別 (常規體能 / 補體能) *</label>
+            <select id="fitness-category-type" onchange="syncFixedFitnessTaskName()" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold">
+              <option value="regular">🏐 重訓與間歇體能 (常規)</option>
+              <option value="makeup">🏋️ 請假補體能 / 自主補體能</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">訓練 / 補體能目標日期 *</label>
+            <input type="date" id="fitness-date" required onchange="syncFixedFitnessTaskName()" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">固定體能菜單名稱 (系統自動固定格式)</label>
+            <input type="text" id="fitness-task-name" readonly value="重訓與間歇體能"
+              class="w-full px-3.5 py-2.5 bg-stone-200/80 border border-matte-border rounded-xl font-bold text-matte-ink cursor-not-allowed" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">初始完成狀態 (預設未完成)</label>
+            <select id="fitness-completed" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl">
+              <option value="false" selected>○ 尚未完成 / 待補 (預設)</option>
+              <option value="true">● 已完成 / 已補</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 固定格式說明預覽 -->
+        <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-2 text-xs">
+          <div class="font-extrabold text-matte-ink flex items-center justify-between">
+            <span>📋 固定指派體能動作表格 (列為動作 × 欄為第 1、2、3 組)</span>
+            <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px]">統一固定格式</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] text-matte-muted pt-1">
+            <div>1. 暖身 速度/幾分鐘 (eg. 8/10)</div>
+            <div>2. 間歇速度 (最慢14)</div>
+            <div>3. 胸推 12下 (kg) [一/二/三組]</div>
+            <div>4. 腿推 12下 (kg) [一/二/三組]</div>
+            <div>5. 屈腿機 12下 [一/二/三組]</div>
+            <div>6. 核心 (做幾下！) [一/二/三組]</div>
+            <div>7. 背 12下 (LB) [一/二/三組]</div>
+            <div>8. 史密斯深蹲24下 [一/二/三組]</div>
+            <div>9. 弓箭步左右12下 [一/二/三組]</div>
+            <div>10. 補體能專區 (YT連結/備註)</div>
+          </div>
+        </div>
+
+        <input type="hidden" id="fitness-note" value="" />
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-fitness')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">確認指派固定格式體能</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 1-B. 球員填寫「列為動作、欄為第一/二/三組」固定格式體能數據 Modal -->
+  <div id="modal-fitness-record" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[92dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base">填寫固定格式體能 / 補體能數據</h3>
+          <p id="fit-rec-subtitle" class="text-[11px] text-stone-400 mt-0.5">列為動作項目、欄為第一組 / 第二組 / 第三組</p>
+        </div>
+        <button type="button" onclick="closeModal('modal-fitness-record')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-fitness-record" onsubmit="submitFitnessRecordForm(event)" class="p-4 sm:p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="fit-rec-id" value="" />
+
+        <!-- 暖身與間歇 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-matte-sub border border-matte-border">
+            <label class="block text-xs font-extrabold text-matte-ink mb-1">🏃 暖身 速度/幾分鐘 (eg. 8/10)</label>
+            <input type="text" id="fit-rec-warmup" placeholder="例如：10/10 或 11"
+              class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-lg text-xs sm:text-sm font-bold" />
+          </div>
+          <div class="p-3 rounded-xl bg-matte-sub border border-matte-border">
+            <label class="block text-xs font-extrabold text-matte-ink mb-1">⚡ 間歇速度 (最慢14)</label>
+            <input type="text" id="fit-rec-interval" placeholder="例如：14.5 或 16"
+              class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-lg text-xs sm:text-sm font-bold" />
+          </div>
+        </div>
+
+        <!-- 列為動作、欄為第一/二/三組 標準表格輸入區 -->
+        <div class="rounded-xl border border-matte-border overflow-hidden bg-matte-sub">
+          <div class="bg-[#1c1b18] text-stone-100 px-3.5 py-2.5 flex items-center justify-between text-xs font-bold">
+            <span>🏋️ 重訓動作 × 組數紀錄表 (列為動作、欄為組數)</span>
+            <span class="text-[11px] text-stone-300">請依序填入第一、二、三組數據</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-stone-300/70 text-matte-ink text-xs font-extrabold border-b border-matte-border">
+                  <th class="py-2.5 px-3 min-w-[140px]">動作項目 (列)</th>
+                  <th class="py-2.5 px-2 text-center min-w-[76px]">第一組</th>
+                  <th class="py-2.5 px-2 text-center min-w-[76px]">第二組</th>
+                  <th class="py-2.5 px-2 text-center min-w-[76px]">第三組</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-stone-300/80 text-xs sm:text-sm">
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">胸推 12下 (kg)</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-chest-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-chest-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-chest-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">腿推 12下 (kg)</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legpress-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legpress-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legpress-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">屈腿機 12下</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legcurl-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legcurl-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-legcurl-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">核心 (做幾下！)</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-core-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-core-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-core-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">背 12下 (LB)</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-back-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-back-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-back-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">史密斯深蹲24下 (單邊kg)</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-smith-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-smith-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-smith-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-bold text-matte-ink">弓箭步左右12下一組</td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-lunge-1" placeholder="第1組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-lunge-2" placeholder="第2組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                  <td class="p-1.5"><input type="text" id="fit-rec-lunge-3" placeholder="第3組" class="w-full px-2 py-1.5 text-center bg-matte-card border border-matte-border rounded-lg font-bold" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-3">
+          <div>
+            <label class="block text-xs font-extrabold text-matte-ink mb-1">🏋️ 補體能專區！上傳 YT 並放上連結 或 訓練備註說明</label>
+            <input type="text" id="fit-rec-makeup" placeholder="可貼上 https://youtu.be/... 連結或輸入補體能 / 訓練說明"
+              class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-xl text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-ink flex items-center gap-1.5 mb-1">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>📷 體能 / 補體能證明照片 (選填，可上傳運動紀錄、汗水照或碼錶截圖)</span>
+            </label>
+            <input type="file" id="fit-rec-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'fit-rec-photo-wrap', 'fit-rec-photo-img')"
+              class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100 hover:file:bg-stone-800" />
+            <div id="fit-rec-photo-wrap" class="hidden pt-2 flex items-center gap-3">
+              <img id="fit-rec-photo-img" src="" alt="體能與補體能證明預覽" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
+              <button type="button" onclick="clearPhotoInput('fit-rec-photo-input', 'fit-rec-photo-wrap', 'fit-rec-photo-img')"
+                class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold">移除照片</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="fit-rec-done" class="w-4 h-4 accent-[#1c1b18]" checked />
+          <label for="fit-rec-done" class="text-xs font-bold text-matte-ink">同時將此項體能 / 補體能標記為「● 已完成」</label>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-fitness-record')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存體能數據並同步</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. 新增隊費 / 代繳費用 Modal -->
+  <div id="modal-fee" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 id="modal-fee-title" class="font-extrabold text-base">新增隊費 / 代繳費用</h3>
+        <button type="button" onclick="closeModal('modal-fee')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-fee" onsubmit="submitFeeForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="fee-mode" value="single" />
+        <div id="fee-member-select-wrap">
+          <label class="block text-xs font-bold text-matte-muted mb-1">對象球員 *</label>
+          <select id="fee-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl"></select>
+        </div>
+        <div id="fee-batch-hint" class="hidden p-3 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-ink font-medium">
+          🏐 全隊批發收費：系統將自動為全隊每位球員建立此筆「隊費 / 代繳費用」應繳紀錄！
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">費用類型 *</label>
+            <select id="fee-type" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-semibold">
+              <option value="隊費">▪ 隊費 (學期常規隊費)</option>
+              <option value="代繳費用">▫ 代繳費用 (排球衣/報名費/護膝團購代墊)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">應繳金額 (NT$) *</label>
+            <input type="number" id="fee-amount" required min="0" placeholder="例如：1000"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">費用項目名稱 *</label>
+          <input type="text" id="fee-title" required placeholder="例如：本學期排球隊費、賽季排球衣代繳"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" onclick="setQuickFee('隊費','本學期排球隊費',1000)" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 本學期隊費 ($1000)</button>
+            <button type="button" onclick="setQuickFee('代繳費用','排球賽季球衣/球褲代繳',950)" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 球衣球褲代繳 ($950)</button>
+            <button type="button" onclick="setQuickFee('代繳費用','大專盃/盃賽報名費代繳',500)" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 盃賽報名代繳 ($500)</button>
+            <button type="button" onclick="setQuickFee('代繳費用','白貼與護膝團購代繳',350)" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 白貼護膝代繳 ($350)</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">繳費期限 / 日期 *</label>
+            <input type="date" id="fee-due-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">繳費是否完成</label>
+            <select id="fee-is-paid" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl">
+              <option value="false">○ 尚未完成 (未繳)</option>
+              <option value="true">● 已完成 (已繳清)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">繳費備註 (匯款後五碼 / 現金經手人)</label>
+          <input type="text" id="fee-note" placeholder="例如：已轉帳末五碼 67890 或 現金交給球經"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-fee')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存並即時同步</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. 新增請假申請 Modal (獨立請假功能，含請假證明照片) -->
+  <div id="modal-leave" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[92dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base">登記排球隊請假單 (附請假證明照片)</h3>
+        <button type="button" onclick="closeModal('modal-leave')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-leave" onsubmit="submitLeaveForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <div id="leave-member-select-wrap">
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假球員 *</label>
+          <select id="leave-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl"></select>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">請假日期 *</label>
+            <input type="date" id="leave-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">假別 *</label>
+            <select id="leave-type" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl">
+              <option value="事假">事假</option>
+              <option value="病假">病假</option>
+              <option value="傷假">傷假 (運動傷害復健)</option>
+              <option value="公假">公假</option>
+              <option value="課業/實習">課業 / 實習衝突</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假時段 / 練球活動 *</label>
+          <input type="text" id="leave-session" required placeholder="例如：週三晚間球場練球、週六友誼賽"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" onclick="setQuickValue('leave-session','例行排球團隊練球')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 例行團隊練球</button>
+            <button type="button" onclick="setQuickValue('leave-session','晨間體能與步法訓練')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 晨間體能與步法</button>
+            <button type="button" onclick="setQuickValue('leave-session','週末排球友誼賽/盃賽')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 週末友誼賽/盃賽</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假事由說明 *</label>
+          <textarea id="leave-reason" required rows="2" placeholder="請簡述請假原因..."
+            class="w-full px-3.5 py-2 bg-matte-sub border border-matte-border rounded-xl"></textarea>
+        </div>
+
+        <!-- 請假證明照片框 -->
+        <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-2">
+          <label class="block text-xs font-bold text-matte-ink flex items-center gap-1.5">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>📷 請假證明照片 (可拍照或從相簿選擇圖片)</span>
+          </label>
+          <input type="file" id="leave-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'leave-photo-preview-wrap', 'leave-photo-preview-img')"
+            class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100 hover:file:bg-stone-800" />
+          <div id="leave-photo-preview-wrap" class="hidden pt-2 flex items-center gap-3">
+            <img id="leave-photo-preview-img" src="" alt="請假證明預覽" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
+            <button type="button" onclick="clearPhotoInput('leave-photo-input', 'leave-photo-preview-wrap', 'leave-photo-preview-img')"
+              class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold">移除照片</button>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-muted">
+          💡 提示：送出請假單後將自動同步至「全隊出席情況」；如需登記補體能數據或影片連結，請至<strong>「體能」</strong>分頁操作。
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-leave')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">送出請假單</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3-B. 事後補交/更新「請假事由與請假證明照片」Modal -->
+  <div id="modal-leave-makeup" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base">更新請假事由與證明照片</h3>
+        <button type="button" onclick="closeModal('modal-leave-makeup')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-leave-makeup" onsubmit="submitLeaveMakeupUpdate(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="edit-leave-id" />
+        <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-xs">
+          <span class="font-bold text-matte-ink" id="edit-leave-summary-title">請假單資訊</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假事由說明</label>
+          <textarea id="edit-leave-reason" rows="2" placeholder="請簡述請假原因..."
+            class="w-full px-3.5 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm"></textarea>
+        </div>
+
+        <!-- 請假證明照片更新框 -->
+        <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-2">
+          <label class="block text-xs font-bold text-matte-ink">📷 請假證明照片</label>
+          <input type="file" id="edit-leave-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'edit-leave-photo-wrap', 'edit-leave-photo-img')"
+            class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100" />
+          <div id="edit-leave-photo-wrap" class="hidden pt-2 flex items-center gap-3">
+            <img id="edit-leave-photo-img" src="" alt="請假照片" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
+            <button type="button" onclick="clearPhotoInput('edit-leave-photo-input', 'edit-leave-photo-wrap', 'edit-leave-photo-img')"
+              class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold">清除照片</button>
+          </div>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-leave-makeup')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存請假資料與照片</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. 球隊經費收支記帳 Modal (管理者專區) -->
+  <div id="modal-finance" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 id="modal-finance-title" class="font-extrabold text-base">新增排球隊經費收支紀錄</h3>
+        <button type="button" onclick="closeModal('modal-finance')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-finance" onsubmit="submitFinanceForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">收支類型 *</label>
+            <select id="finance-type" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold">
+              <option value="支出">－ 經費支出</option>
+              <option value="收入">＋ 經費收入</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">日期 *</label>
+            <input type="date" id="finance-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">會計科目分類 *</label>
+            <select id="finance-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl">
+              <option value="期初結轉/存款">期初結轉/存款</option>
+              <option value="隊費收入">隊費收入</option>
+              <option value="代繳收支">球衣/大專盃/團購代繳收支</option>
+              <option value="比賽報名">盃賽報名 / 住宿 / 教練車費</option>
+              <option value="場地租借">場地租借 / 友誼賽場地</option>
+              <option value="贊助補助">學校經費補助 / 獎金</option>
+              <option value="器材採購">器材採購 (排球/球車/標竿/打氣筒)</option>
+              <option value="防護補給">運動防護 (白貼/肌貼/冰塊/飲水)</option>
+              <option value="其他雜支">其他雜支 (保險/影印/手續費/利息)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">金額 (NT$) *</label>
+            <input type="number" id="finance-amount" required min="1" placeholder="例如：1800"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">項目摘要說明 *</label>
+          <input type="text" id="finance-title" required placeholder="例如：採購 Mikasa V200W 比賽排球 2 顆"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">經手人 / 報帳人</label>
+            <input type="text" id="finance-handler" placeholder="例如：隊長、球經、總務"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">備註 / 收據單號</label>
+            <input type="text" id="finance-note" placeholder="選填備註"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-finance')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存收支紀錄</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. 管理者專屬：註冊新成員 或 修改成員姓名/帳號/密碼 Modal -->
+  <div id="modal-member" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 id="modal-member-title" class="font-extrabold text-base">註冊新排球隊成員帳號</h3>
+        <button type="button" onclick="closeModal('modal-member')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-member" onsubmit="submitMemberForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="member-edit-id" value="" />
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">登入帳號 (僅管理者可設定/修改) *</label>
+          <input type="text" id="member-username" required placeholder="例如：player5"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">登入密碼 *</label>
+          <input type="text" id="member-password" required value="1234"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">球員姓名 (僅管理者可改) *</label>
+            <input type="text" id="member-name" required placeholder="姓名"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">背號 / 排球位置</label>
+            <input type="text" id="member-jersey" placeholder="如：#11 副攻(OP)"
+              class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">權限角色 *</label>
+          <select id="member-role" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-medium">
+            <option value="member">🏐 一般球員 (看自己資料 + 全隊經費)</option>
+            <option value="admin">📋 球隊管理者 (全隊管理 + 註冊與修改姓名帳號)</option>
+          </select>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-member')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" id="member-submit-btn" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存帳號資料</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Supabase 資料庫初始化與狀態檢測 Modal -->
+  <div id="modal-sql-setup" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-800 flex items-center justify-between bg-[#181816] text-stone-100">
+        <div class="flex items-center gap-2">
+          <i data-lucide="database" class="w-5 h-5 text-stone-300"></i>
+          <h3 class="font-extrabold text-base">Supabase 雲端資料庫連線與初始化</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-sql-setup')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto text-sm text-matte-ink">
+        <div id="sql-modal-status-box" class="p-3.5 rounded-xl border bg-matte-sub border-matte-border flex items-center justify-between gap-3">
+          <div>
+            <p class="font-bold text-matte-ink" id="sql-modal-status-title">檢測中...</p>
+            <p class="text-xs text-matte-muted mt-0.5">API URL: https://mtorunczoyjvhmufaast.supabase.co/rest/v1/</p>
+          </div>
+          <button type="button" onclick="recheckAndSyncSupabase()"
+            class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold shrink-0 shadow-sm">
+            重新檢測並上傳同步
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <p class="font-bold text-matte-ink text-xs sm:text-sm">📌 首次使用或更新欄位步驟（僅需 10 秒）：</p>
+          <ol class="list-decimal list-inside space-y-1 text-xs text-matte-muted">
+            <li>點擊下方 <strong>「1. 複製 SQL 建表語法」</strong> 按鈕。</li>
+            <li>點擊 <strong>「2. 開啟 Supabase SQL Editor」</strong>，貼上語法並點擊右下角 <strong>Run</strong>。</li>
+            <li>回到本頁點擊上方 <strong>「重新檢測並上傳同步」</strong>，即可完成雲端即時資料庫連結！</li>
+          </ol>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="copySqlScript()"
+            class="flex-1 py-2.5 px-4 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            <span>1. 複製 SQL 建表語法</span>
+          </button>
+          <a href="https://supabase.com/dashboard/project/mtorunczoyjvhmufaast/sql/new" target="_blank" rel="noopener"
+            class="flex-1 py-2.5 px-4 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>2. 開啟 Supabase SQL Editor</span>
+          </a>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">SQL 建表語法預覽 (同步存於 setup.sql)：</label>
+          <textarea id="sql-script-textarea" readonly rows="7"
+            class="w-full p-3 rounded-xl bg-[#181816] text-stone-300 font-mono text-xs leading-relaxed border border-stone-700"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主程式邏輯 -->
+  <script src="./app.js"></script>
+</body>
+</html>
