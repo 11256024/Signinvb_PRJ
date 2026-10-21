@@ -151,14 +151,15 @@ VALUES
     ('player014', 'ntub014', '佩珊', '#14 隊員', 'member'),
     ('player015', 'ntub015', '佳盈', '#15 隊員', 'member'),
     ('player016', 'ntub016', '惟媛', '#16 隊員', 'member'),
-    ('player017', 'ntub017', '凱樂', '#17 隊員', 'member'),
+    ('player017', 'ntub017', '凱勒', '#17 隊員', 'member'),
     ('player018', 'ntub018', '彥葶', '#18 隊員', 'member'),
-    ('player019', 'ntub019', '唐霓', '#19 隊員', 'member'),
-    ('player020', 'ntub020', '凱勒', '#20 隊員', 'member')
+    ('player019', 'ntub019', '唐霓', '#19 隊員', 'member')
 ON CONFLICT (username) DO UPDATE SET
     password = EXCLUDED.password,
     name = EXCLUDED.name,
     role = EXCLUDED.role;
+
+DELETE FROM public.team_users WHERE name = '凱樂' OR username = 'player020';
 
 INSERT INTO public.team_finances (id, tx_date, tx_type, category, title, amount, handler, note, created_at)
 VALUES
@@ -284,7 +285,7 @@ VALUES
     ('c0000000-0000-4000-8000-000000000084', (SELECT id FROM public.team_users WHERE name = '烏薩奇' LIMIT 1), '烏薩奇', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:10/10｜間歇:16.5｜胸推(kg):7.5/0/0｜腿推(kg):100/35/35｜屈腿機:20/10/10｜核心(下):25/20/20｜背(LB):20/20/20｜史密斯(kg):20/2.5/2.5｜弓箭步:9/3/3｜填報:2026-09-28 16:31:29', '2026-09-28T16:31:29Z'),
     ('c0000000-0000-4000-8000-000000000085', (SELECT id FROM public.team_users WHERE name = '婕伃' LIMIT 1), '婕伃', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:10/8 11/2｜間歇:14.5｜胸推(kg):5/0/0｜腿推(kg):62.5/35/35｜屈腿機:30/10/10｜核心(下):20/20/20｜背(LB):15/5/5｜史密斯(kg):10/2.5/2.5｜弓箭步:7/3/3｜填報:2026-09-28 14:50:34', '2026-09-28T14:50:34Z'),
     ('c0000000-0000-4000-8000-000000000086', (SELECT id FROM public.team_users WHERE name = '惟媛' LIMIT 1), '惟媛', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:8/10｜間歇:14｜胸推(kg):2.5/0｜腿推(kg):35/0｜屈腿機:17.5/0｜核心(下):20/0｜背(LB):5/0｜史密斯(kg):7.5/0｜弓箭步:4/0｜填報:2026-10-04 15:05:48', '2026-10-04T15:05:48Z'),
-    ('c0000000-0000-4000-8000-000000000087', (SELECT id FROM public.team_users WHERE name = '凱樂' LIMIT 1), '凱樂', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:8/10｜間歇:12｜胸推(kg):2.5/2.5｜腿推(kg):55/55｜屈腿機:17.5/20｜核心(下):20/30｜背(LB):15/10｜史密斯(kg):10/10｜弓箭步:6/7｜填報:2026-09-30 20:47:47', '2026-09-30T20:47:47Z'),
+    ('c0000000-0000-4000-8000-000000000087', (SELECT id FROM public.team_users WHERE name = '凱勒' LIMIT 1), '凱勒', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:8/10｜間歇:12｜胸推(kg):2.5/2.5｜腿推(kg):55/55｜屈腿機:17.5/20｜核心(下):20/30｜背(LB):15/10｜史密斯(kg):10/10｜弓箭步:6/7｜填報:2026-09-30 20:47:47', '2026-09-30T20:47:47Z'),
     ('c0000000-0000-4000-8000-000000000088', (SELECT id FROM public.team_users WHERE name = '愛佳' LIMIT 1), '愛佳', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:10/10｜間歇:14｜胸推(kg):7.5/0｜腿推(kg):72.5/0｜屈腿機:25/0｜核心(下):30/0｜背(LB):15/0｜史密斯(kg):17.5/0｜弓箭步:10/0｜填報:2026-10-02 14:07:10', '2026-10-02T14:07:10Z'),
     ('c0000000-0000-4000-8000-000000000089', (SELECT id FROM public.team_users WHERE name = '鈺庭' LIMIT 1), '鈺庭', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:10｜間歇:14.5｜胸推(kg):7.5/0｜腿推(kg):62.5/0｜屈腿機:20/0｜核心(下):20/0｜背(LB):10/0｜史密斯(kg):12.5/0｜弓箭步:5/5｜填報:2026-10-02 13:21:41', '2026-10-02T13:21:41Z'),
     ('c0000000-0000-4000-8000-000000000090', (SELECT id FROM public.team_users WHERE name = '蔡佳ㄣ' LIMIT 1), '蔡佳ㄣ', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:10｜間歇:0｜胸推(kg):10/0｜腿推(kg):127.5/0｜屈腿機:30/0｜核心(下):30/0｜背(LB):25/0｜史密斯(kg):22.5/0｜弓箭步:9/0｜填報:2026-10-01 14:22:32', '2026-10-01T14:22:32Z'),
@@ -528,10 +529,9 @@ function getDefaultSeedData() {
       { id: 'a0000000-0000-4000-8000-000000000014', username: 'player014', password: 'ntub014', name: '佩珊', jersey_number: '#14 隊員', role: 'member', created_at: '2025-10-01T08:00:14Z' },
       { id: 'a0000000-0000-4000-8000-000000000015', username: 'player015', password: 'ntub015', name: '佳盈', jersey_number: '#15 隊員', role: 'member', created_at: '2025-10-01T08:00:15Z' },
       { id: 'a0000000-0000-4000-8000-000000000016', username: 'player016', password: 'ntub016', name: '惟媛', jersey_number: '#16 隊員', role: 'member', created_at: '2025-10-01T08:00:16Z' },
-      { id: 'a0000000-0000-4000-8000-000000000017', username: 'player017', password: 'ntub017', name: '凱樂', jersey_number: '#17 隊員', role: 'member', created_at: '2025-10-01T08:00:17Z' },
+      { id: 'a0000000-0000-4000-8000-000000000020', username: 'player017', password: 'ntub017', name: '凱勒', jersey_number: '#17 隊員', role: 'member', created_at: '2025-10-01T08:00:17Z' },
       { id: 'a0000000-0000-4000-8000-000000000018', username: 'player018', password: 'ntub018', name: '彥葶', jersey_number: '#18 隊員', role: 'member', created_at: '2025-10-01T08:00:18Z' },
-      { id: 'a0000000-0000-4000-8000-000000000019', username: 'player019', password: 'ntub019', name: '唐霓', jersey_number: '#19 隊員', role: 'member', created_at: '2025-10-01T08:00:19Z' },
-      { id: 'a0000000-0000-4000-8000-000000000020', username: 'player020', password: 'ntub020', name: '凱勒', jersey_number: '#20 隊員', role: 'member', created_at: '2025-10-01T08:00:20Z' }
+      { id: 'a0000000-0000-4000-8000-000000000019', username: 'player019', password: 'ntub019', name: '唐霓', jersey_number: '#19 隊員', role: 'member', created_at: '2025-10-01T08:00:19Z' }
     ],
     fitness: [
       {"id": "c0000000-0000-4000-8000-000000000146", "user_id": "a0000000-0000-4000-8000-000000000001", "user_name": "蔡佳ㄣ", "task_name": "重訓與間歇體能 (2026-10-20)", "target_date": "2026-10-20", "is_completed": true, "note": "暖身:10｜間歇:0｜胸推(kg):12.5/12.5｜腿推(kg):135/135｜屈腿機:35/35｜核心(下):35/35｜背(LB):25/25｜史密斯(kg):22.5/22.5｜弓箭步:12.5/12.5｜填報:2026-10-20 23:28:12", "updated_at": "2026-10-20T23:28:12Z"},
@@ -598,7 +598,7 @@ function getDefaultSeedData() {
       {"id": "c0000000-0000-4000-8000-000000000089", "user_id": "a0000000-0000-4000-8000-000000000009", "user_name": "鈺庭", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:10｜間歇:14.5｜胸推(kg):7.5/0｜腿推(kg):62.5/0｜屈腿機:20/0｜核心(下):20/0｜背(LB):10/0｜史密斯(kg):12.5/0｜弓箭步:5/5｜填報:2026-10-02 13:21:41", "updated_at": "2026-10-02T13:21:41Z"},
       {"id": "c0000000-0000-4000-8000-000000000079", "user_id": "a0000000-0000-4000-8000-000000000014", "user_name": "佩珊", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:8｜間歇:12｜胸推(kg):5/5｜腿推(kg):55/55｜屈腿機:40/40｜核心(下):30/30｜背(LB):10/10｜史密斯(kg):2.5/2.5｜弓箭步:8/8｜填報:2026-10-02", "updated_at": "2026-10-02T12:00:19Z"},
       {"id": "c0000000-0000-4000-8000-000000000090", "user_id": "a0000000-0000-4000-8000-000000000001", "user_name": "蔡佳ㄣ", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:10｜間歇:0｜胸推(kg):10/0｜腿推(kg):127.5/0｜屈腿機:30/0｜核心(下):30/0｜背(LB):25/0｜史密斯(kg):22.5/0｜弓箭步:9/0｜填報:2026-10-01 14:22:32", "updated_at": "2026-10-01T14:22:32Z"},
-      {"id": "c0000000-0000-4000-8000-000000000087", "user_id": "a0000000-0000-4000-8000-000000000017", "user_name": "凱樂", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:8/10｜間歇:12｜胸推(kg):2.5/2.5｜腿推(kg):55/55｜屈腿機:17.5/20｜核心(下):20/30｜背(LB):15/10｜史密斯(kg):10/10｜弓箭步:6/7｜填報:2026-09-30 20:47:47", "updated_at": "2026-09-30T20:47:47Z"},
+      {"id": "c0000000-0000-4000-8000-000000000087", "user_id": "a0000000-0000-4000-8000-000000000020", "user_name": "凱勒", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:8/10｜間歇:12｜胸推(kg):2.5/2.5｜腿推(kg):55/55｜屈腿機:17.5/20｜核心(下):20/30｜背(LB):15/10｜史密斯(kg):10/10｜弓箭步:6/7｜填報:2026-09-30 20:47:47", "updated_at": "2026-09-30T20:47:47Z"},
       {"id": "c0000000-0000-4000-8000-000000000084", "user_id": "a0000000-0000-4000-8000-000000000008", "user_name": "烏薩奇", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:10/10｜間歇:16.5｜胸推(kg):7.5/0/0｜腿推(kg):100/35/35｜屈腿機:20/10/10｜核心(下):25/20/20｜背(LB):20/20/20｜史密斯(kg):20/2.5/2.5｜弓箭步:9/3/3｜填報:2026-09-28 16:31:29", "updated_at": "2026-09-28T16:31:29Z"},
       {"id": "c0000000-0000-4000-8000-000000000085", "user_id": null, "user_name": "婕伃", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:10/8 11/2｜間歇:14.5｜胸推(kg):5/0/0｜腿推(kg):62.5/35/35｜屈腿機:30/10/10｜核心(下):20/20/20｜背(LB):15/5/5｜史密斯(kg):10/2.5/2.5｜弓箭步:7/3/3｜填報:2026-09-28 14:50:34", "updated_at": "2026-09-28T14:50:34Z"},
       {"id": "c0000000-0000-4000-8000-000000000082", "user_id": "a0000000-0000-4000-8000-000000000005", "user_name": "宥潾", "task_name": "重訓與間歇體能 (2026-09-22)", "target_date": "2026-09-22", "is_completed": true, "note": "暖身:10｜間歇:16｜胸推(kg):10/0/0｜腿推(kg):107.5/35/35｜屈腿機:25/10/10｜核心(下):20/20/20｜背(LB):20/5/5｜史密斯(kg):25/2.5/2.5｜弓箭步:10/3/3｜填報:2026-09-28 01:18:31", "updated_at": "2026-09-28T01:18:31Z"},
@@ -741,6 +741,59 @@ function saveLocalCache() {
   }
 }
 
+// 將舊名稱「凱樂」自動歸一合併為「凱勒」，並移除重複帳號
+function normalizeMergedRosterInMemory() {
+  let kailerUser = state.users.find(u => u.name === '凱勒');
+  const kaileUsers = state.users.filter(u => u.name === '凱樂');
+
+  if (!kailerUser && kaileUsers.length > 0) {
+    kaileUsers[0].name = '凱勒';
+    kailerUser = kaileUsers[0];
+  }
+
+  // 若同時有多個凱勒/凱樂帳號，只保留一個凱勒帳號
+  const seenKailer = { done: false };
+  state.users = state.users.filter(u => {
+    if (u.name === '凱樂') return false;
+    if (u.name === '凱勒') {
+      if (seenKailer.done) return false;
+      seenKailer.done = true;
+      kailerUser = u;
+      return true;
+    }
+    return true;
+  });
+
+  const kailerId = kailerUser ? kailerUser.id : null;
+
+  state.fitness.forEach(f => {
+    if (f.user_name === '凱樂') {
+      f.user_name = '凱勒';
+      if (kailerId) f.user_id = kailerId;
+    } else if (f.user_name === '凱勒' && kailerId) {
+      f.user_id = kailerId;
+    }
+  });
+
+  state.fees.forEach(f => {
+    if (f.user_name === '凱樂') {
+      f.user_name = '凱勒';
+      if (kailerId) f.user_id = kailerId;
+    } else if (f.user_name === '凱勒' && kailerId) {
+      f.user_id = kailerId;
+    }
+  });
+
+  state.leaves.forEach(l => {
+    if (l.user_name === '凱樂') {
+      l.user_name = '凱勒';
+      if (kailerId) l.user_id = kailerId;
+    } else if (l.user_name === '凱勒' && kailerId) {
+      l.user_id = kailerId;
+    }
+  });
+}
+
 function loadLocalCache() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -752,6 +805,7 @@ function loadLocalCache() {
         state.fees = parsed.fees || [];
         state.leaves = parsed.leaves || [];
         state.finances = parsed.finances || [];
+        normalizeMergedRosterInMemory();
         return;
       }
     }
@@ -764,6 +818,7 @@ function loadLocalCache() {
   state.fees = seed.fees;
   state.leaves = seed.leaves;
   state.finances = seed.finances;
+  normalizeMergedRosterInMemory();
   saveLocalCache();
 }
 
@@ -892,6 +947,33 @@ async function fetchAllFromSupabase(showSpin = false) {
     state.fees = feeRes.data || [];
     state.leaves = leaveRes.data || [];
     state.finances = finRes.data || [];
+
+    // 若雲端仍有舊的「凱樂」帳號或紀錄，自動合併歸一為「凱勒」並同步回 Supabase
+    const hasOldKaile =
+      state.users.some(u => u.name === '凱樂') ||
+      state.users.filter(u => u.name === '凱勒').length > 1 ||
+      state.fitness.some(f => f.user_name === '凱樂') ||
+      state.fees.some(f => f.user_name === '凱樂') ||
+      state.leaves.some(l => l.user_name === '凱樂');
+
+    normalizeMergedRosterInMemory();
+
+    if (hasOldKaile && state.isSupabaseReady) {
+      const kailerUser = state.users.find(u => u.name === '凱勒');
+      const kailerId = kailerUser ? kailerUser.id : null;
+      try {
+        await Promise.all([
+          supabaseClient.from('team_fitness').update({ user_name: '凱勒', ...(kailerId ? { user_id: kailerId } : {}) }).eq('user_name', '凱樂'),
+          supabaseClient.from('team_fees').update({ user_name: '凱勒', ...(kailerId ? { user_id: kailerId } : {}) }).eq('user_name', '凱樂'),
+          supabaseClient.from('team_leaves').update({ user_name: '凱勒', ...(kailerId ? { user_id: kailerId } : {}) }).eq('user_name', '凱樂')
+        ]);
+        if (kailerId) {
+          await supabaseClient.from('team_users').delete().eq('name', '凱樂').neq('id', kailerId);
+        }
+      } catch (e) {
+        console.warn('Merge 凱樂 -> 凱勒 sync warning:', e);
+      }
+    }
 
     if (state.currentUser) {
       const updatedMe = state.users.find(u => u.id === state.currentUser.id || u.username === state.currentUser.username);
@@ -1170,19 +1252,19 @@ function updateAdminViewModeButtons() {
 }
 
 function drillDownFitnessByTask(taskName) {
-  const searchEl = document.getElementById('filter-fitness-search');
-  const memberEl = document.getElementById('filter-fitness-member');
-  if (searchEl) searchEl.value = taskName;
-  if (memberEl) memberEl.value = 'all';
+  const dateMatch = (taskName || '').match(/\d{4}-\d{2}-\d{2}/);
+  if (dateMatch) {
+    state.selectedFitnessDate = dateMatch[0];
+  }
   setAdminViewMode('detail');
-  showToast(`已切換至「${taskName}」細項明細`, 'info');
+  showToast(`已切換至個人細項明細`, 'info');
 }
 
 function drillDownFitnessByMember(userId) {
   const searchEl = document.getElementById('filter-fitness-search');
   const memberEl = document.getElementById('filter-fitness-member');
   if (searchEl) searchEl.value = '';
-  if (memberEl) memberEl.value = userId;
+  if (memberEl) memberEl.value = 'all';
   if (userId.startsWith('name:')) {
     state.selectedFitnessPlayer = userId.slice(5);
   } else {
@@ -1191,6 +1273,25 @@ function drillDownFitnessByMember(userId) {
   }
   state.selectedFitnessDate = '';
   setAdminViewMode('detail');
+}
+
+function openPlayerFitnessDetail(playerName, dateStr = '') {
+  if (playerName) {
+    state.selectedFitnessPlayer = playerName;
+  }
+  const playerRecords = state.fitness
+    .filter(f => f.user_name === state.selectedFitnessPlayer)
+    .sort((a, b) => (b.target_date || '').localeCompare(a.target_date || ''));
+  if (dateStr && playerRecords.some(f => f.target_date === dateStr)) {
+    state.selectedFitnessDate = dateStr;
+  } else if (!playerRecords.some(f => f.target_date === state.selectedFitnessDate)) {
+    state.selectedFitnessDate = playerRecords.length > 0 ? playerRecords[0].target_date : '';
+  }
+  if (state.currentUser && state.currentUser.role === 'admin') {
+    setAdminViewMode('detail');
+  } else {
+    renderFitnessSection();
+  }
 }
 
 function onSelectFitnessMemberDropdown(val) {
@@ -1211,7 +1312,9 @@ function onSelectFitnessMemberDropdown(val) {
 
 function selectFitnessMatrixPlayer(playerName) {
   state.selectedFitnessPlayer = playerName;
-  const playerRecords = state.fitness.filter(f => f.user_name === playerName);
+  const playerRecords = state.fitness
+    .filter(f => f.user_name === playerName)
+    .sort((a, b) => (b.target_date || '').localeCompare(a.target_date || ''));
   if (!playerRecords.some(f => f.target_date === state.selectedFitnessDate)) {
     state.selectedFitnessDate = playerRecords.length > 0 ? playerRecords[0].target_date : '';
   }
@@ -1220,12 +1323,6 @@ function selectFitnessMatrixPlayer(playerName) {
 
 function selectFitnessMatrixDate(dateStr) {
   state.selectedFitnessDate = dateStr;
-  const dateRecords = state.fitness.filter(f => f.target_date === dateStr);
-  if (state.currentUser && state.currentUser.role === 'admin') {
-    if (!dateRecords.some(f => f.user_name === state.selectedFitnessPlayer) && dateRecords.length > 0) {
-      state.selectedFitnessPlayer = dateRecords[0].user_name;
-    }
-  }
   renderFitnessSection();
 }
 
@@ -1690,7 +1787,7 @@ function renderDashboardSection() {
       dashFitEl.innerHTML = scopedFitness.slice(0, 4).map(f => {
         const isMakeup = (f.task_name || '').includes('補體能') || (f.note || '').includes('補體能');
         return `
-        <div onclick="switchTab('fitness'); selectFitnessMatrixPlayer('${escapeJsStr(f.user_name)}'); selectFitnessMatrixDate('${escapeJsStr(f.target_date)}')"
+        <div onclick="switchTab('fitness'); openPlayerFitnessDetail('${escapeJsStr(f.user_name)}', '${escapeJsStr(f.target_date)}')"
           class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -2186,93 +2283,103 @@ function renderFitnessMatrixViewer() {
       <div>
         <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
           <i data-lucide="table" class="w-4 h-4"></i>
-          <span>${isAdmin ? '【管理者專區】點選人名 × 點選日期 查看體能/補體能動作組數表' : '【個人專區】點選日期查看我的體能與補體能動作組數表'}</span>
+          <span>${isAdmin ? '【管理者專區】選擇隊員 × 選擇有練體能日期 查看動作組數表' : '【個人專區】點選日期查看我的體能與補體能動作組數表'}</span>
         </h3>
         <p class="text-xs text-matte-muted mt-0.5">
           呈現格式：列為動作項目、欄為組數（第一組 / 第二組 / 第三組），含一般體能與請假補體能紀錄
         </p>
       </div>
-      ${activeRecord ? `
-        <span class="px-3 py-1 rounded-lg text-xs font-extrabold shrink-0 ${
-          activeRecord.is_completed
-            ? 'bg-[#1c1b18] text-stone-100'
-            : 'bg-stone-200 text-matte-ink border border-stone-400'
-        }">
-          ${activeRecord.is_completed ? '● 該日體能/補體能已完成' : '○ 該日體能/補體能尚未完成'}
-        </span>
-      ` : ''}
+      <div class="flex items-center gap-2 flex-wrap shrink-0">
+        ${isAdmin ? `
+          <button type="button" onclick="setAdminViewMode('summary')"
+            class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1">
+            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+            <span>← 返回粗略項目 (體能完成進度)</span>
+          </button>
+        ` : ''}
+        ${activeRecord ? `
+          <span class="px-3 py-1 rounded-lg text-xs font-extrabold shrink-0 ${
+            activeRecord.is_completed
+              ? 'bg-[#1c1b18] text-stone-100'
+              : 'bg-stone-200 text-matte-ink border border-stone-400'
+          }">
+            ${activeRecord.is_completed ? '● 該日體能/補體能已完成' : '○ 該日體能/補體能尚未完成'}
+          </span>
+        ` : ''}
+      </div>
     </div>
 
     ${isAdmin ? `
-      <!-- Step 1: 點選球員人名 -->
-      <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-extrabold text-matte-ink">① 點選球員人名 (${playerNames.length} 人)：</span>
-          <span class="text-[11px] text-matte-muted">括號內為已完成次數</span>
+      <!-- 管理者：下拉式選單選擇隊員與該隊員有練體能的日期 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-matte-sub/60 p-3.5 rounded-2xl border border-matte-border">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-extrabold text-matte-ink">① 選擇隊員 (${playerNames.length} 人)：</label>
+          <select onchange="selectFitnessMatrixPlayer(this.value)"
+            class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink focus:outline-none focus:ring-2 focus:ring-stone-700">
+            ${playerNames.map(name => {
+              const recs = state.fitness.filter(f => f.user_name === name);
+              const doneCount = recs.filter(f => f.is_completed).length;
+              const selected = state.selectedFitnessPlayer === name ? 'selected' : '';
+              return `<option value="${escapeHtml(name)}" ${selected}>🏐 ${escapeHtml(name)}（已完成 ${doneCount} / ${recs.length} 筆）</option>`;
+            }).join('')}
+          </select>
         </div>
-        <div class="flex flex-wrap gap-1.5">
-          ${playerNames.map(name => {
-            const recs = state.fitness.filter(f => f.user_name === name);
-            const doneCount = recs.filter(f => f.is_completed).length;
-            const active = state.selectedFitnessPlayer === name;
-            return `
-              <button type="button" onclick="selectFitnessMatrixPlayer('${escapeJsStr(name)}')"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-[#1c1b18] text-stone-100 shadow-xs ring-2 ring-stone-500'
-                    : 'bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border'
-                }">
-                <span>${escapeHtml(name)}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] ${active ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-matte-ink'}">${doneCount}/${recs.length}</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    ` : ''}
 
-    <!-- Step 2: 點選該球員的訓練/補體能日期 -->
-    <div class="space-y-1.5">
-      <div class="flex items-center justify-between flex-wrap gap-2">
-        <span class="text-xs font-extrabold text-matte-ink">
-          ${isAdmin ? `② 點選「${escapeHtml(state.selectedFitnessPlayer)}」的訓練/補體能日期 (${playerRecords.length} 筆)：` : `點選我的訓練/補體能日期 (${playerRecords.length} 筆)：`}
-        </span>
-        ${isAdmin && allDates.length > 0 ? `
-          <div class="flex items-center gap-1.5 text-xs">
-            <span class="text-matte-muted font-medium">或直接依全隊日期快選：</span>
-            <select onchange="if(this.value) selectFitnessMatrixDate(this.value)" class="px-2 py-1 rounded-lg bg-matte-sub border border-matte-border text-xs font-bold text-matte-ink">
-              <option value="">選擇訓練日期...</option>
-              ${allDates.map(d => `<option value="${d}" ${d === state.selectedFitnessDate ? 'selected' : ''}>${d}</option>`).join('')}
+        <div class="space-y-1.5">
+          <label class="block text-xs font-extrabold text-matte-ink">② 選擇「${escapeHtml(state.selectedFitnessPlayer)}」有練體能的日期 (${playerRecords.length} 筆)：</label>
+          ${playerRecords.length === 0 ? `
+            <div class="px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs text-matte-muted">
+              目前「${escapeHtml(state.selectedFitnessPlayer)}」尚無任何體能或補體能紀錄
+            </div>
+          ` : `
+            <select onchange="if(this.value) selectFitnessMatrixDate(this.value)"
+              class="w-full px-3 py-2.5 rounded-xl bg-matte-card border border-matte-border text-xs sm:text-sm font-bold text-matte-ink focus:outline-none focus:ring-2 focus:ring-stone-700">
+              ${playerRecords.map(r => {
+                const selected = r.target_date === state.selectedFitnessDate ? 'selected' : '';
+                const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
+                const statusLabel = r.is_completed ? '● 完成' : '○ 未完';
+                const typeLabel = isMakeup ? ' [補體能]' : '';
+                return `<option value="${escapeHtml(r.target_date)}" ${selected}>📅 ${escapeHtml(r.target_date)}（${statusLabel}${typeLabel}）</option>`;
+              }).join('')}
             </select>
-          </div>
-        ` : ''}
+          `}
+        </div>
       </div>
+    ` : `
+      <!-- 一般球員：點選自己的訓練/補體能日期 -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs font-extrabold text-matte-ink">
+            點選我的訓練/補體能日期 (${playerRecords.length} 筆)：
+          </span>
+        </div>
 
-      ${playerRecords.length === 0 ? `
-        <div class="p-4 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-muted text-center">
-          目前「${escapeHtml(state.selectedFitnessPlayer)}」尚無任何體能或補體能紀錄
-        </div>
-      ` : `
-        <div class="flex flex-wrap gap-1.5">
-          ${playerRecords.map(r => {
-            const active = r.target_date === state.selectedFitnessDate && (!activeRecord || r.id === activeRecord.id);
-            const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
-            return `
-              <button type="button" onclick="selectFitnessMatrixDate('${escapeJsStr(r.target_date)}')"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-[#1c1b18] text-stone-100 shadow-xs ring-2 ring-stone-500'
-                    : 'bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border'
-                }">
-                <span>📅 ${escapeHtml(r.target_date)}</span>
-                ${isMakeup ? `<span class="px-1 py-0.2 rounded text-[10px] ${active ? 'bg-stone-700 text-stone-100' : 'bg-stone-300 text-matte-ink'}">補體能</span>` : ''}
-                <span class="text-[11px]">${r.is_completed ? '● 完成' : '○ 未完'}</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
-      `}
-    </div>
+        ${playerRecords.length === 0 ? `
+          <div class="p-4 rounded-xl bg-matte-sub border border-matte-border text-xs text-matte-muted text-center">
+            目前尚無任何體能或補體能紀錄
+          </div>
+        ` : `
+          <div class="flex flex-wrap gap-1.5">
+            ${playerRecords.map(r => {
+              const active = r.target_date === state.selectedFitnessDate && (!activeRecord || r.id === activeRecord.id);
+              const isMakeup = (r.task_name || '').includes('補體能') || (r.note || '').includes('補體能');
+              return `
+                <button type="button" onclick="selectFitnessMatrixDate('${escapeJsStr(r.target_date)}')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    active
+                      ? 'bg-[#1c1b18] text-stone-100 shadow-xs ring-2 ring-stone-500'
+                      : 'bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border'
+                  }">
+                  <span>📅 ${escapeHtml(r.target_date)}</span>
+                  ${isMakeup ? `<span class="px-1 py-0.2 rounded text-[10px] ${active ? 'bg-stone-700 text-stone-100' : 'bg-stone-300 text-matte-ink'}">補體能</span>` : ''}
+                  <span class="text-[11px]">${r.is_completed ? '● 完成' : '○ 未完'}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `}
 
     <!-- Step 3: 列為動作、欄為組(第一、二、三)數 表格呈現 -->
     ${activeRecord ? `
@@ -2283,6 +2390,15 @@ function renderFitnessMatrixViewer() {
             <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 日期：${escapeHtml(activeRecord.target_date)}</span>
             <span class="text-xs text-matte-muted">（${escapeHtml(activeRecord.task_name)}）</span>
           </div>
+          ${isAdmin ? `
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="deleteFitnessRecord('${activeRecord.id}')" title="刪除此筆紀錄"
+                class="px-2.5 py-1.5 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-muted hover:text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>刪除此筆紀錄</span>
+              </button>
+            </div>
+          ` : ''}
           ${!isAdmin && isOwnedByCurrentUser(activeRecord) ? `
             <div class="flex items-center gap-2">
               <button type="button" onclick="promptFitnessNote('${activeRecord.id}')"
@@ -2467,87 +2583,69 @@ function renderFitnessSection() {
   renderPracticeScheduleCalendar('fitness-schedule-calendar');
   renderFitnessMatrixViewer();
 
+  const filterGrid = document.getElementById('fitness-filter-grid');
+  const calendarEl = document.getElementById('fitness-schedule-calendar');
+  const matrixEl = document.getElementById('fitness-matrix-viewer');
   const summaryContainer = document.getElementById('fitness-summary-container');
   const detailContainer = document.getElementById('fitness-list-container');
   if (!summaryContainer || !detailContainer) return;
 
-  if (isAdmin && state.adminViewMode === 'summary') {
-    summaryContainer.classList.remove('hidden');
-    detailContainer.classList.add('hidden');
+  // 管理者雙畫面切換：
+  // 1. 粗略項目 (summary)：顯示全隊體能完成進度條、排程日曆(含當日進度與請假/已補/未補名單)
+  // 2. 細項明細 (detail)：顯示成員個人的細項（選擇隊員 × 選擇有練體能日期 查看動作組數表）＋ 該隊員個人體能/補體能完成度進度條（如同圖二進度條樣式）
+  if (isAdmin) {
+    if (state.adminViewMode === 'summary') {
+      if (filterGrid) filterGrid.classList.remove('hidden');
+      if (progEl) progEl.classList.remove('hidden');
+      if (calendarEl) calendarEl.classList.remove('hidden');
+      if (matrixEl) matrixEl.classList.add('hidden');
+      summaryContainer.classList.add('hidden');
+      detailContainer.classList.add('hidden');
+      return;
+    } else {
+      // 管理者：細項明細 (成員個人的細項畫面 — 個人進度條顯示於上方 #fitness-progress-bar)
+      if (filterGrid) filterGrid.classList.add('hidden');
+      if (progEl) progEl.classList.remove('hidden');
+      if (calendarEl) calendarEl.classList.add('hidden');
+      if (matrixEl) matrixEl.classList.remove('hidden');
+      summaryContainer.classList.add('hidden');
+      detailContainer.classList.add('hidden');
 
-    const byTask = groupFitnessByTask(list);
-    const byMember = groupFitnessByMember(list);
+      const allMemberStats = groupFitnessByMember(state.fitness);
+      const selectedStat = allMemberStats.find(m => m.userName === state.selectedFitnessPlayer) || {
+        userName: state.selectedFitnessPlayer || '隊員',
+        jersey: '',
+        done: 0,
+        total: 0,
+        pct: 0,
+        pendingTasks: []
+      };
 
-    summaryContainer.innerHTML = `
-      <div class="bg-matte-card p-4 sm:p-5 rounded-2xl border border-matte-border shadow-xs space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
-            <i data-lucide="layers" class="w-4 h-4"></i>
-            <span>【粗略項目一】依體能與補體能項目彙整 (${byTask.length} 項任務)</span>
-          </h3>
-          <span class="text-xs text-matte-muted">點擊任一項目可看全隊細項</span>
-        </div>
-        ${byTask.length === 0 ? `<p class="text-xs text-matte-muted py-4 text-center">無符合條件的體能或補體能項目</p>` : `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            ${byTask.map(g => `
-              <div onclick="drillDownFitnessByTask('${escapeJsStr(g.taskName)}')"
-                class="cursor-pointer p-4 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition flex flex-col justify-between gap-2">
-                <div class="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 class="font-bold text-sm text-matte-ink">🏐 ${escapeHtml(g.taskName)}</h4>
-                    <p class="text-[11px] text-matte-muted mt-0.5">目標日期：${g.targetDate || '-'}</p>
-                  </div>
-                  <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
-                    ${g.done} / ${g.total} 完成 (${g.pct}%)
-                  </span>
-                </div>
-                <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
-                  <div class="h-full bg-[#1c1b18]" style="width:${g.pct}%"></div>
-                </div>
-                <div class="text-xs text-matte-muted flex flex-wrap gap-1 pt-1">
-                  ${g.pendingNames.length > 0
-                    ? `<span class="font-bold text-matte-ink">○ 未完成 (${g.pendingNames.length}人)：</span><span>${escapeHtml(g.pendingNames.join('、'))}</span>`
-                    : `<span class="font-bold text-matte-ink">● 全隊皆已完成此項目</span>`
-                  }
-                </div>
-              </div>
-            `).join('')}
+      if (progEl) {
+        progEl.innerHTML = `
+          <div class="flex items-center justify-between text-xs sm:text-sm font-bold mb-2">
+            <span class="text-matte-ink">
+              ${escapeHtml(selectedStat.userName)}${selectedStat.jersey ? ` <span class="text-xs text-matte-muted font-normal">(${escapeHtml(selectedStat.jersey)})</span>` : ''} 個人體能/補體能完成度：${selectedStat.done} / ${selectedStat.total} 項已完成
+            </span>
+            <span class="text-matte-ink font-extrabold">${selectedStat.pct}%</span>
           </div>
-        `}
-      </div>
-
-      <div class="bg-matte-card p-4 sm:p-5 rounded-2xl border border-matte-border shadow-xs space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
-            <i data-lucide="users" class="w-4 h-4"></i>
-            <span>【粗略項目二】依球員個人完成度彙整 (${byMember.length} 位球員)</span>
-          </h3>
-          <span class="text-xs text-matte-muted">點擊球員可展開個人細項</span>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          ${byMember.map(m => `
-            <div onclick="drillDownFitnessByMember('${m.userId}')"
-              class="cursor-pointer p-3.5 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <div class="min-w-0">
-                  <span class="font-extrabold text-sm text-matte-ink">${escapeHtml(m.userName)}</span>
-                  <span class="text-[11px] text-matte-muted ml-1">${escapeHtml(m.jersey)}</span>
-                </div>
-                <span class="px-2 py-0.5 rounded text-xs font-bold ${m.pct === 100 ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
-                  ${m.done}/${m.total} (${m.pct}%)
-                </span>
-              </div>
-              <p class="text-[11px] text-matte-muted truncate">
-                ${m.pendingTasks.length > 0 ? `待完成：${escapeHtml(m.pendingTasks.join('、'))}` : '● 所有體能與補體能均已完成'}
-              </p>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-    return;
+          <div class="w-full h-2.5 bg-matte-sub rounded-full overflow-hidden border border-matte-border">
+            <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width: ${selectedStat.pct}%"></div>
+          </div>
+          <p class="text-[11px] text-matte-muted mt-2">
+            ${selectedStat.pendingTasks.length > 0 ? `待完成：${escapeHtml(selectedStat.pendingTasks.join('、'))}` : '● 所有體能與補體能均已完成'}
+          </p>
+        `;
+      }
+      return;
+    }
   }
 
+  // 一般球員視角
+  if (filterGrid) filterGrid.classList.remove('hidden');
+  if (progEl) progEl.classList.remove('hidden');
+  if (calendarEl) calendarEl.classList.remove('hidden');
+  if (matrixEl) matrixEl.classList.remove('hidden');
   summaryContainer.classList.add('hidden');
   detailContainer.classList.remove('hidden');
 
@@ -2909,6 +3007,73 @@ async function setAdminScheduleForDate(dateStr, nextType) {
   showToast(nextType === 'none' ? `已取消 ${dateStr} 的練球/體能排程` : `已將 ${dateStr} 排定為「${nextType}」！`, 'success');
 }
 
+// 計算指定日期全隊體能/補體能進度與「請假 / 已補 / 未補」名單（涵蓋全隊所有球員）
+function getDateFitnessRosterBreakdown(dateStr) {
+  const playerUsers = getPlayerUsers();
+  const allRosterNames = playerUsers.map(u => u.name).filter(Boolean);
+  const rosterSet = new Set(allRosterNames);
+
+  const schedType = getDateScheduleType(dateStr);
+  const leavesOnDate = getRealLeaves().filter(l => l.leave_date === dateStr);
+  const leaveNames = Array.from(new Set(leavesOnDate.map(l => l.user_name).filter(Boolean)));
+  const leaveSet = new Set(leaveNames);
+
+  const fitnessOnDate = state.fitness.filter(f => f.target_date === dateStr);
+
+  // 已補 / 已完成名單：當日有完成體能紀錄，或請假單標記已補體能
+  const doneNamesSet = new Set();
+  fitnessOnDate.forEach(f => {
+    if (f.is_completed && f.user_name) doneNamesSet.add(f.user_name);
+  });
+  leavesOnDate.forEach(l => {
+    if (l.makeup_done && l.user_name) doneNamesSet.add(l.user_name);
+  });
+  const doneNames = Array.from(doneNamesSet);
+
+  // 判斷該日期是否為訓練/體能日或有體能/請假紀錄
+  const hasActivity = schedType !== 'none' || fitnessOnDate.length > 0 || leavesOnDate.length > 0;
+
+  // 未補 / 未完成名單：涵蓋全隊名單！只要不在「已補/已完成名單」內（包含未請假且尚未在已完成名單內的隊員、以及已請假未補體能的隊員），皆列入未補/未完成名單
+  const pendingNamesSet = new Set();
+  if (hasActivity) {
+    allRosterNames.forEach(name => {
+      if (!doneNamesSet.has(name)) {
+        pendingNamesSet.add(name);
+      }
+    });
+  }
+  // 若當日有非在籍歷史球員的未完成紀錄，也一併納入
+  fitnessOnDate.forEach(f => {
+    if (!f.is_completed && f.user_name && !doneNamesSet.has(f.user_name)) {
+      pendingNamesSet.add(f.user_name);
+    }
+  });
+  leaveNames.forEach(name => {
+    if (!doneNamesSet.has(name)) {
+      pendingNamesSet.add(name);
+    }
+  });
+
+  const pendingNames = Array.from(pendingNamesSet);
+  const totalCount = hasActivity ? (doneNames.length + pendingNames.length) : 0;
+  const pct = totalCount > 0 ? Math.round((doneNames.length / totalCount) * 100) : 0;
+
+  return {
+    hasActivity,
+    schedType,
+    leavesOnDate,
+    leaveNames,
+    leaveSet,
+    fitnessOnDate,
+    doneNames,
+    doneSet: doneNamesSet,
+    pendingNames,
+    totalCount,
+    pct,
+    rosterSet
+  };
+}
+
 // 渲染「練球與體能行事曆」(供體能分頁與出席看板共用)
 function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar') {
   const container = document.getElementById(containerId);
@@ -2932,12 +3097,14 @@ function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${ym}-${String(day).padStart(2, '0')}`;
-    const schedType = getDateScheduleType(dateStr);
+    const dayInfo = getDateFitnessRosterBreakdown(dateStr);
+    const schedType = dayInfo.schedType;
     const isToday = dateStr === today;
     const isSelected = dateStr === activeDate;
-    const realLeavesOnDay = getRealLeaves().filter(l => l.leave_date === dateStr);
+    const realLeavesOnDay = dayInfo.leavesOnDate;
+    const fitnessOnDay = dayInfo.fitnessOnDate;
     const myLeave = realLeavesOnDay.find(isOwnedByCurrentUser);
-    const myFit = state.fitness.find(f => f.target_date === dateStr && isOwnedByCurrentUser(f));
+    const myFit = fitnessOnDay.find(isOwnedByCurrentUser);
 
     let badgeHtml = '';
     if (schedType === '練球') {
@@ -2946,6 +3113,24 @@ function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-stone-700 text-stone-100 text-[10px] font-extrabold">💪 體能</span>`;
     } else if (schedType === '練球+體能') {
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">🏐練球+💪體能</span>`;
+    }
+
+    let progressHtml = '';
+    if (schedType === '體能' || schedType === '練球+體能' || fitnessOnDay.length > 0) {
+      const doneCnt = dayInfo.doneNames.length;
+      const totalCnt = dayInfo.totalCount;
+      const pct = dayInfo.pct;
+      progressHtml = `
+        <div class="space-y-0.5 mt-0.5">
+          <div class="flex items-center justify-between text-[10px] font-extrabold text-matte-ink">
+            <span>${doneCnt}/${totalCnt} 完成</span>
+            <span>${pct}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-stone-300 rounded-full overflow-hidden">
+            <div class="h-full bg-[#1c1b18]" style="width:${pct}%"></div>
+          </div>
+        </div>
+      `;
     }
 
     let userReminderHtml = '';
@@ -2964,26 +3149,36 @@ function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar
 
     dayCells.push(`
       <button type="button" onclick="selectAttendanceDate('${dateStr}')"
-        class="min-h-[68px] sm:min-h-[78px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+        class="min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
           isSelected
             ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
-            : schedType !== 'none'
+            : schedType !== 'none' || fitnessOnDay.length > 0
               ? 'bg-matte-card border-stone-400 hover:border-stone-600 shadow-2xs'
               : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
         }">
         <div class="w-full flex items-center justify-between gap-1">
           <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
-          ${schedType !== 'none' ? `<span class="w-2 h-2 rounded-full bg-[#1c1b18] shrink-0"></span>` : ''}
+          ${schedType !== 'none' || fitnessOnDay.length > 0 ? `<span class="w-2 h-2 rounded-full bg-[#1c1b18] shrink-0"></span>` : ''}
         </div>
         <div class="w-full space-y-0.5 mt-1 overflow-hidden">
           ${badgeHtml || `<span class="text-[10px] text-matte-muted block">-</span>`}
+          ${progressHtml}
           ${userReminderHtml}
         </div>
       </button>
     `);
   }
 
-  const activeSchedType = getDateScheduleType(activeDate);
+  const activeBreakdown = getDateFitnessRosterBreakdown(activeDate);
+  const activeSchedType = activeBreakdown.schedType;
+  const activeLeaves = activeBreakdown.leavesOnDate;
+  const activeLeaveNames = activeBreakdown.leaveNames;
+  const activeLeaveSet = activeBreakdown.leaveSet;
+  const activeFitness = activeBreakdown.fitnessOnDate;
+  const activeDoneNames = activeBreakdown.doneNames;
+  const activePendingNames = activeBreakdown.pendingNames;
+  const activeTotalCount = activeBreakdown.totalCount;
+  const activePct = activeBreakdown.pct;
 
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
@@ -3066,6 +3261,85 @@ function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar
           </button>
         </div>
       `}
+    </div>
+
+    <!-- 點擊對應日期：顯示當日完成進度、請假名單、已補/已完成名單、未補/未完成名單 -->
+    <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能完成進度與請假 / 已補 / 未補名單</span>
+        </div>
+        ${activeTotalCount > 0 ? `
+          <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
+            ${activeDoneNames.length} / ${activeTotalCount} 完成 (${activePct}%)
+          </span>
+        ` : `
+          <span class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold shrink-0">
+            尚無當日體能紀錄
+          </span>
+        `}
+      </div>
+
+      ${activeTotalCount > 0 ? `
+        <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
+          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activePct}%"></div>
+        </div>
+      ` : ''}
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+        <!-- 1. 當天請假名單 -->
+        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-matte-ink">📅 當天請假名單 (${activeLeaveNames.length} 人)</span>
+          </div>
+          ${activeLeaveNames.length === 0 ? `
+            <p class="text-xs text-matte-muted">無人請假</p>
+          ` : `
+            <div class="flex flex-wrap gap-1">
+              ${activeLeaveNames.map(name => {
+                const lv = activeLeaves.find(l => l.user_name === name);
+                const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
+                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${escapeHtml(typeStr)}</button>`;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- 2. 已補 / 已完成名單 -->
+        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-matte-ink">● 已補 / 已完成名單 (${activeDoneNames.length} 人)</span>
+          </div>
+          ${activeDoneNames.length === 0 ? `
+            <p class="text-xs text-matte-muted">尚無人完成</p>
+          ` : `
+            <div class="flex flex-wrap gap-1">
+              ${activeDoneNames.map(name => {
+                const rec = activeFitness.find(f => f.user_name === name && f.is_completed);
+                const isMakeup = rec && ((rec.task_name || '').includes('補體能') || (rec.note || '').includes('補體能') || activeLeaveSet.has(name));
+                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}${isMakeup ? ' (已補)' : ''}</button>`;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- 3. 未補 / 未完成名單 -->
+        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-matte-ink">○ 未補 / 未完成名單 (${activePendingNames.length} 人)</span>
+          </div>
+          ${activePendingNames.length === 0 ? `
+            <p class="text-xs text-matte-muted">${activeTotalCount > 0 ? '● 全員皆已完成 / 已補齊' : '無待補名單'}</p>
+          ` : `
+            <div class="flex flex-wrap gap-1">
+              ${activePendingNames.map(name => {
+                const isLv = activeLeaveSet.has(name);
+                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${isLv ? ' (請假未補)' : ' (未完)'}</button>`;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
     </div>
   `;
 }
