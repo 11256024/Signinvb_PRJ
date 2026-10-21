@@ -355,7 +355,7 @@ const state = {
   selectedFitnessDate: '',
   selectedAttendanceDate: '',
   selectedLeavePlayer: '',
-  selectedLeaveDate: '',
+  selectedLeaveDate: '', scheduleCalendarMonth: '', equipmentCalendarMonth: '', selectedEquipDate: '',
   isSupabaseReady: false,
   users: [],
   fitness: [],
@@ -370,6 +370,102 @@ const state = {
 function getPlayerUsers() {
   return state.users.filter(u => u.role !== 'admin');
 }
+
+function isSystemScheduleRecord(r) {
+  return r && r.session_name === '__SYS_SCHEDULE__';
+}
+function isSystemEquipRecord(r) {
+  return r && r.session_name === '__SYS_EQUIP__';
+}
+function isNormalLeaveRecord(r) {
+  return r && r.session_name !== '__SYS_SCHEDULE__' && r.session_name !== '__SYS_EQUIP__';
+}
+function getRealLeaves() {
+  return state.leaves.filter(isNormalLeaveRecord);
+}
+function getScheduleRecords() {
+  return state.leaves.filter(isSystemScheduleRecord);
+}
+function getEquipmentRecords() {
+  return state.leaves.filter(isSystemEquipRecord);
+}
+
+function getDateScheduleType(dateStr) {
+  const explicit = getScheduleRecords().find(r => r.leave_date === dateStr);
+  if (explicit) {
+    if (explicit.leave_type === '無' || explicit.leave_type === 'none') return 'none';
+    return explicit.leave_type || 'none';
+  }
+  const hasFit = state.fitness.some(f => f.target_date === dateStr && !(f.task_name || '').includes('補體能'));
+  const hasLeave = getRealLeaves().some(l => l.leave_date === dateStr);
+  if (hasFit && hasLeave) return '練球+體能';
+  if (hasFit) return '體能';
+  if (hasLeave) return '練球';
+  return 'none';
+}
+
+function getDateEquipmentStatus(dateStr) {
+  const recs = getEquipmentRecords().filter(r => r.leave_date === dateStr);
+  let borrower = null;
+  let returner = null;
+  recs.forEach(r => {
+    if (r.leave_type === '借還器材') {
+      if (!borrower) borrower = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' };
+      if (!returner) returner = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' };
+    } else if (r.leave_type === '借器材') {
+      if (!borrower) borrower = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借器材' };
+    } else if (r.leave_type === '還器材') {
+      if (!returner) returner = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '還器材' };
+    }
+  });
+  return { borrower, returner, rawRecords: recs };
+}
+
+function getMonthlyEquipmentCounts(yearMonth) {
+  const ym = yearMonth || getTodayStr().slice(0, 7);
+  const countsMap = new Map();
+  getPlayerUsers().forEach(u => {
+    countsMap.set(u.name, { user: u, count: 0, dates: [] });
+  });
+  const monthRecs = getEquipmentRecords().filter(r => (r.leave_date || '').startsWith(ym));
+  monthRecs.sort((a, b) => (a.leave_date || '').localeCompare(b.leave_date || ''));
+  const dateProcessed = new Set();
+  monthRecs.forEach(r => {
+    const d = r.leave_date;
+    if (!d || dateProcessed.has(d)) return;
+    dateProcessed.add(d);
+    const st = getDateEquipmentStatus(d);
+    if (st.borrower && st.returner && st.borrower.user_name === st.returner.user_name) {
+      const item = countsMap.get(st.borrower.user_name);
+      if (item) {
+        item.count += 2;
+        item.dates.push(`${d.slice(8, 10)}日(借+還)`);
+      }
+    } else {
+      if (st.borrower) {
+        const item = countsMap.get(st.borrower.user_name);
+        if (item) {
+          item.count += 1;
+          item.dates.push(`${d.slice(8, 10)}日(借)`);
+        }
+      }
+      if (st.returner) {
+        const item = countsMap.get(st.returner.user_name);
+        if (item) {
+          item.count += 1;
+          item.dates.push(`${d.slice(8, 10)}日(還)`);
+        }
+      }
+    }
+  });
+  return Array.from(countsMap.values());
+}
+
+
+
+// 取得所有一般球員帳號 (排除管理者，管理者無須被指派體能或補體能)
+function getPlayerUsers_unused() { return []; }
+
 
 // 暫存目前表單上傳壓縮後的 Base64 圖片
 const photoBuffer = {
@@ -1135,16 +1231,18 @@ function selectFitnessMatrixDate(dateStr) {
 
 function selectLeaveMatrixPlayer(playerName) {
   state.selectedLeavePlayer = playerName;
-  const recs = state.leaves.filter(l => l.user_name === playerName);
+  const recs = getRealLeaves().filter(l => l.user_name === playerName);
   if (!recs.some(l => l.leave_date === state.selectedLeaveDate)) {
     state.selectedLeaveDate = recs.length > 0 ? recs[0].leave_date : '';
   }
   renderLeavesSection();
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
 }
 
 function selectLeaveMatrixDate(dateStr) {
   state.selectedLeaveDate = dateStr;
   renderLeavesSection();
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
 }
 
 function drillDownFeesByTitle(title) {
@@ -1173,6 +1271,7 @@ function drillDownLeavesByMember(userId) {
   }
   setAdminViewMode('detail');
   renderLeavesSection();
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
   lucide.createIcons();
 }
 
@@ -1452,6 +1551,7 @@ function renderAll() {
   renderFitnessSection();
   renderFeesSection();
   renderLeavesSection();
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
   renderFinancesSection();
   renderSettingsSection();
   lucide.createIcons();
@@ -1477,11 +1577,11 @@ function renderDashboardSection() {
   // 全隊出席與請假統計 (一般使用者與管理者皆可查看全隊出席狀況)
   const playerUsers = getPlayerUsers();
   const totalPlayersCount = playerUsers.length || 20;
-  const latestLeaveDate = state.leaves.length > 0
-    ? [...state.leaves].sort((a, b) => (b.leave_date || '').localeCompare(a.leave_date || ''))[0].leave_date
+  const realLeaves = getRealLeaves(); const latestLeaveDate = realLeaves.length > 0
+    ? [...realLeaves].sort((a, b) => (b.leave_date || '').localeCompare(a.leave_date || ''))[0].leave_date
     : getTodayStr();
   const activeDate = state.selectedAttendanceDate || latestLeaveDate || getTodayStr();
-  const leavesOnActiveDate = state.leaves.filter(l => l.leave_date === activeDate);
+  const leavesOnActiveDate = realLeaves.filter(l => l.leave_date === activeDate);
   const absentPlayerNames = new Set(leavesOnActiveDate.map(l => l.user_name));
   const presentCount = Math.max(0, totalPlayersCount - absentPlayerNames.size);
   const attendancePct = totalPlayersCount > 0 ? Math.round((presentCount / totalPlayersCount) * 100) : 100;
@@ -1532,7 +1632,7 @@ function renderDashboardSection() {
         <div class="mt-2">
           <div class="text-xl sm:text-2xl font-extrabold text-matte-ink">${presentCount} / ${totalPlayersCount} <span class="text-xs font-bold text-matte-muted">人出席 (${attendancePct}%)</span></div>
           <p class="text-[11px] text-matte-muted mt-0.5">
-            當日請假 ${absentPlayerNames.size} 人 ・ 累計請假 ${state.leaves.length} 筆
+            當日請假 ${absentPlayerNames.size} 人 ・ 累計請假 ${realLeaves.length} 筆
           </p>
         </div>
       </div>
@@ -1671,10 +1771,10 @@ function renderDashboardSection() {
         <span class="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-[11px] font-bold shrink-0">出席看板 &rarr;</span>
       </div>
     `;
-    if (state.leaves.length === 0) {
+    if (realLeaves.length === 0) {
       dashLeavesEl.innerHTML = attendanceBanner + `<div class="text-xs text-matte-muted py-4 text-center">目前無請假紀錄（全隊滿員出席）</div>`;
     } else if (isSummary) {
-      const memberLeaveGroups = groupLeavesByMember(state.leaves);
+      const memberLeaveGroups = groupLeavesByMember(realLeaves);
       dashLeavesEl.innerHTML = attendanceBanner + memberLeaveGroups.slice(0, 3).map(g => `
         <div onclick="switchTab('leaves'); drillDownLeavesByMember('${g.userId}')"
           class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
@@ -1686,7 +1786,7 @@ function renderDashboardSection() {
         </div>
       `).join('');
     } else {
-      dashLeavesEl.innerHTML = attendanceBanner + state.leaves.slice(0, 3).map(l => `
+      dashLeavesEl.innerHTML = attendanceBanner + realLeaves.slice(0, 3).map(l => `
         <div onclick="switchTab('leaves'); selectAttendanceDate('${escapeJsStr(l.leave_date)}')" class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -1706,6 +1806,8 @@ function renderDashboardSection() {
 
   // 下右欄：排球隊經費收支概況 (使用者與管理者皆可見！)
   const dashFinEl = document.getElementById('dash-finance-summary');
+  if (dashFinEl) renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate);
+  if (false && dashFinEl) { // legacy finance block disabled
   if (dashFinEl) {
     if (state.finances.length === 0) {
       dashFinEl.innerHTML = `<div class="text-xs text-matte-muted py-6 text-center">尚無經費收支紀錄</div>`;
@@ -1752,6 +1854,117 @@ function renderDashboardSection() {
 // ----------------------------------------------------------------------------
 // 粗略項目分組統計輔助函式
 // ----------------------------------------------------------------------------
+}
+
+function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate) {
+  const ym = (activeDate || getTodayStr()).slice(0, 7);
+  const [y, m] = ym.split('-').map(Number);
+  const monthlyStats = getMonthlyEquipmentCounts(ym);
+  const metCount = monthlyStats.filter(x => x.count >= 1).length;
+  const myStat = monthlyStats.find(x => x.user.name === state.currentUser.name || x.user.id === state.currentUser.id);
+
+  const headingEl = document.getElementById('dash-equip-heading');
+  if (headingEl) {
+    headingEl.textContent = isSummary
+      ? `排球隊借還器材彙整（${m}月誰借／誰還器材統計）`
+      : `排球隊借還器材狀況（誰借／誰還器材）`;
+  }
+
+  // 收集有借還器材紀錄或有排定練球/體能的日期
+  const dateSet = new Set();
+  if (activeDate) dateSet.add(activeDate);
+  dateSet.add(getTodayStr());
+  getEquipmentRecords().forEach(r => { if (r.leave_date) dateSet.add(r.leave_date); });
+  getScheduleRecords().forEach(r => { if (r.leave_date && r.leave_type !== '無' && r.leave_type !== 'none') dateSet.add(r.leave_date); });
+  const sortedDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
+
+  const topBanner = `
+    <div onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+      class="cursor-pointer p-3 rounded-xl bg-[#1c1b18] text-stone-100 border border-stone-800 hover:bg-stone-800 transition flex items-center justify-between gap-2">
+      <div>
+        <div class="text-xs font-extrabold">
+          📦 ${y} 年 ${m} 月借還器材達標：${metCount} / ${monthlyStats.length} 人（每月 1~31 日至少 1 次）
+        </div>
+        <p class="text-[11px] text-stone-400 mt-0.5">
+          ${!isAdmin && myStat
+            ? (myStat.count >= 1
+                ? `● 我本月已累計 ${myStat.count} 次（${escapeHtml(myStat.dates.join('、'))}）`
+                : `⚠️ 我本月尚無借還器材紀錄，點此前往日曆登記！`)
+            : `一天練球借+還算 2 次 ・ 同一天不可重複人借（點擊開啟借器材日曆）`}
+        </p>
+      </div>
+      <span class="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-[11px] font-bold shrink-0">借器材日曆 &rarr;</span>
+    </div>
+  `;
+
+  if (false && isSummary) {
+    // 粗略項目模式：列出各球員本月借還器材次數與負責日期（已借者優先，方便看誰借還器材與誰還沒借）
+    const sortedPlayers = [...monthlyStats].sort((a, b) => b.count - a.count);
+    dashFinEl.innerHTML = topBanner + sortedPlayers.slice(0, 5).map(item => {
+      const ok = item.count >= 1;
+      return `
+        <div onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+          class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${ok ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">${ok ? '● 已借還' : '○ 未達標'}</span>
+              <span class="font-bold text-xs sm:text-sm text-matte-ink">${escapeHtml(item.user.name)}</span>
+            </div>
+            <p class="text-[11px] text-matte-muted mt-0.5 truncate">
+              ${item.dates.length > 0 ? `負責日期：${escapeHtml(item.dates.join('、'))}` : `${m} 月份尚未登記借還器材`}
+            </p>
+          </div>
+          <span class="font-extrabold text-xs sm:text-sm text-matte-ink shrink-0">
+            本月 ${item.count} 次
+          </span>
+        </div>
+      `;
+    }).join('');
+    return;
+  }
+
+  // 細項模式（預設使用者與管理者细項）：逐日顯示「誰借器材 / 誰還器材」
+  const dateCardsHtml = sortedDates.slice(0, 4).map(d => {
+    const eq = getDateEquipmentStatus(d);
+    const sched = getDateScheduleType(d);
+    const bothSame = eq.borrower && eq.returner && eq.borrower.user_name === eq.returner.user_name;
+    const hasAny = Boolean(eq.borrower || eq.returner);
+
+    return `
+      <div onclick="switchTab('leaves'); selectEquipCalendarDate('${escapeJsStr(d)}'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+        class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${hasAny ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
+              ${bothSame ? '借+還 (算2次)' : (hasAny ? '已登記' : '待登記')}
+            </span>
+            <span class="font-bold text-xs sm:text-sm text-matte-ink">📅 ${escapeHtml(d)}</span>
+            ${sched !== 'none' ? `<span class="px-1.5 py-0.5 rounded bg-stone-200 text-matte-ink text-[10px] font-bold">${escapeHtml(sched)}</span>` : ''}
+          </div>
+          <p class="text-[11px] text-matte-muted mt-1 truncate">
+            📦 借器材：<strong class="text-matte-ink">${eq.borrower ? escapeHtml(eq.borrower.user_name) : '尚無人借'}</strong>
+            ・ 📥 還器材：<strong class="text-matte-ink">${eq.returner ? escapeHtml(eq.returner.user_name) : '尚無人還'}</strong>
+          </p>
+        </div>
+        <span class="font-extrabold text-xs text-matte-ink shrink-0">
+          ${bothSame ? `${escapeHtml(eq.borrower.user_name)} (×2)` : (hasAny ? '查看 / 登記 &rarr;' : '點此借器材 &rarr;')}
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  const doneList = monthlyStats.filter(x => x.count >= 1).map(x => `${x.user.name}(${x.count}次)`);
+  const pendingList = monthlyStats.filter(x => x.count === 0).map(x => x.user.name);
+  const quotaSummaryCard = `
+    <div onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+      class="cursor-pointer p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-1">
+      <div class="text-xs font-extrabold text-matte-ink">● ${m} 月已借還器材 (${doneList.length}人)：<span class="font-semibold">${doneList.length > 0 ? escapeHtml(doneList.join('、')) : '目前尚無人登記'}</span></div>
+      <div class="text-[11px] text-matte-muted truncate">○ ${m} 月尚未借器材 (${pendingList.length}人)：${pendingList.length > 0 ? escapeHtml(pendingList.join('、')) : '全員皆已達標 🎉'}</div>
+    </div>
+  `;
+  dashFinEl.innerHTML = topBanner + dateCardsHtml + quotaSummaryCard;
+}
+
 function groupFitnessByTask(list) {
   const map = new Map();
   list.forEach(f => {
@@ -1862,12 +2075,13 @@ function splitThreeSets(valStr) {
 }
 
 // 以「列為動作、欄為組(第一、二、三)數」固定表格呈現體能/補體能數據
-function renderFitnessNoteDetails(note) {
-  const parsed = parseWorkoutStructuredOrPlain(note);
+function renderFitnessNoteDetails(note, targetDate = '') {
+  const parsed = parseWorkoutStructuredOrPlain(note, targetDate);
   return parsed;
 }
 
-function parseWorkoutStructuredOrPlain(note) {
+function parseWorkoutStructuredOrPlain(note, targetDate = '') {
+  const eqSt = targetDate ? getDateEquipmentStatus(targetDate) : { borrower: null, returner: null };
   const info = parseWorkoutNoteToMap(note);
   const hasAnyMetric = Object.keys(info.rawMap).length > 0;
 
@@ -1919,7 +2133,7 @@ function parseWorkoutStructuredOrPlain(note) {
           <span class="font-extrabold">🏋️ 補體能專區 / 連結備註：</span>${renderTextWithLinks(info.makeup || info.extraText)}
         </div>
       ` : ''}
-      ${info.makeupPhoto ? `
+      ${(eqSt.borrower || eqSt.returner) ? `<div class="px-3 py-1.5 rounded-lg bg-matte-sub border border-matte-border text-xs font-bold text-matte-ink">📦 當日 (${escapeHtml(targetDate)}) 器材負責：借【${eqSt.borrower ? escapeHtml(eqSt.borrower.user_name) : '無人'}】／ 還【${eqSt.returner ? escapeHtml(eqSt.returner.user_name) : '無人'}】</div>` : ''}${false ? `
         <div class="space-y-1">
           <span class="text-[11px] font-bold text-matte-muted block">📷 體能 / 補體能完成證明照片（點擊放大）：</span>
           <img src="${escapeHtml(info.makeupPhoto)}" onclick="openLightbox(this.src)"
@@ -2074,12 +2288,12 @@ function renderFitnessMatrixViewer() {
               <button type="button" onclick="promptFitnessNote('${activeRecord.id}')"
                 class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                <span>填寫第一/二/三組數據・照片並完成</span>
+                <span>填寫第一/二/三組數據・借器材並完成</span>
               </button>
             </div>
           ` : ''}
         </div>
-        ${renderFitnessNoteDetails(activeRecord.note)}
+        ${renderFitnessNoteDetails(activeRecord.note, activeRecord.target_date)}
       </div>
     ` : ''}
   `;
@@ -2250,6 +2464,7 @@ function renderFitnessSection() {
     `;
   }
 
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
   renderFitnessMatrixViewer();
 
   const summaryContainer = document.getElementById('fitness-summary-container');
@@ -2361,7 +2576,7 @@ function renderFitnessSection() {
             </span>
           </div>
           <h4 class="font-bold text-matte-ink text-sm sm:text-base break-words">🏐 ${escapeHtml(f.task_name)}</h4>
-          ${renderFitnessNoteDetails(f.note)}
+          ${renderFitnessNoteDetails(f.note, f.target_date)}
         </div>
 
         <div class="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-matte-border shrink-0 flex-wrap self-start sm:self-center">
@@ -2369,7 +2584,7 @@ function renderFitnessSection() {
             <button type="button" onclick="promptFitnessNote('${f.id}')"
               class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5">
               <i data-lucide="edit-3" class="w-4 h-4"></i>
-              <span>填寫數據・照片 / 完成</span>
+              <span>填寫數據・借器材 / 完成</span>
             </button>
             <button type="button" onclick="toggleFitnessStatus('${f.id}')"
               class="px-3 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition">
@@ -2586,10 +2801,650 @@ function renderFeesSection() {
 // ----------------------------------------------------------------------------
 // 4. 渲染請假與全隊出席情況 (Leaves & Team Attendance - 一般使用者與管理者皆可查看全隊出席情況)
 // ----------------------------------------------------------------------------
+function changeScheduleMonth(delta) {
+  if (!state.scheduleCalendarMonth) state.scheduleCalendarMonth = getTodayStr().slice(0, 7);
+  const [y, m] = state.scheduleCalendarMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  state.scheduleCalendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
+  renderTeamAttendanceBoard();
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
+  lucide.createIcons();
+}
+
+function changeEquipMonth(delta) {
+  if (!state.equipmentCalendarMonth) state.equipmentCalendarMonth = getTodayStr().slice(0, 7);
+  const [y, m] = state.equipmentCalendarMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  state.equipmentCalendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  renderEquipmentCalendarBoard('leaves-equipment-calendar-board');
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
+  renderEquipmentCalendarBoard('equipment-calendar-board');
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
+  lucide.createIcons();
+}
+
+// 管理者點擊練球/體能日曆上的某一格：循環設定『練球 → 體能 → 練球+體能 → 取消』並自動為體能日指派全隊任務
+async function adminToggleScheduleDate(dateStr) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    selectAttendanceDate(dateStr);
+    return;
+  }
+  const currentType = getDateScheduleType(dateStr);
+  const cycle = ['none', '練球', '體能', '練球+體能'];
+  const nextIdx = (cycle.indexOf(currentType) + 1) % cycle.length;
+  const nextType = cycle[nextIdx];
+
+  await setAdminScheduleForDate(dateStr, nextType);
+}
+
+async function setAdminScheduleForDate(dateStr, nextType) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') return;
+  const existing = getScheduleRecords().filter(r => r.leave_date === dateStr);
+  const existingIds = existing.map(r => r.id);
+
+  // 移除舊的排程標記
+  state.leaves = state.leaves.filter(r => !existingIds.includes(r.id));
+  if (state.isSupabaseReady && existingIds.length > 0) {
+    await supabaseClient.from('team_leaves').delete().in('id', existingIds);
+  }
+
+  const storedType = nextType === 'none' ? '無' : nextType;
+  const newRec = {
+    id: generateUUID(),
+    user_id: state.currentUser.id,
+    user_name: state.currentUser.name,
+    leave_date: dateStr,
+    leave_type: storedType,
+    session_name: '__SYS_SCHEDULE__',
+    reason: `管理者排定：${storedType}`,
+    status: '已核准',
+    created_at: new Date().toISOString()
+  };
+
+  state.leaves.unshift(newRec);
+  if (state.isSupabaseReady) {
+    await supabaseClient.from('team_leaves').insert([{
+      id: newRec.id,
+      user_id: newRec.user_id,
+      user_name: newRec.user_name,
+      leave_date: newRec.leave_date,
+      leave_type: newRec.leave_type,
+      session_name: newRec.session_name,
+      reason: newRec.reason,
+      status: newRec.status,
+      created_at: newRec.created_at
+    }]);
+  }
+
+  // 若設定為「體能」或「練球+體能」，且當日尚未為全隊建立常規體能任務，自動為缺少的球員建立預設未完成任務
+  if (nextType === '體能' || nextType === '練球+體能') {
+    const playerUsers = getPlayerUsers();
+    const existingFitNames = new Set(
+      state.fitness.filter(f => f.target_date === dateStr && !(f.task_name || '').includes('補體能')).map(f => f.user_name)
+    );
+    const missingPlayers = playerUsers.filter(u => !existingFitNames.has(u.name));
+    if (missingPlayers.length > 0) {
+      const taskName = `重訓與間歇體能 (${dateStr})`;
+      const newFitRecs = missingPlayers.map(u => ({
+        id: generateUUID(),
+        user_id: u.id,
+        user_name: u.name,
+        task_name: taskName,
+        target_date: dateStr,
+        is_completed: false,
+        note: '',
+        updated_at: new Date().toISOString()
+      }));
+      state.fitness.unshift(...newFitRecs);
+      if (state.isSupabaseReady) {
+        await supabaseClient.from('team_fitness').insert(newFitRecs);
+      }
+    }
+  }
+
+  state.selectedAttendanceDate = dateStr;
+  await notifyRealtimePeers();
+  renderAll();
+  showToast(nextType === 'none' ? `已取消 ${dateStr} 的練球/體能排程` : `已將 ${dateStr} 排定為「${nextType}」！`, 'success');
+}
+
+// 渲染「練球與體能行事曆」(供體能分頁與出席看板共用)
+function renderPracticeScheduleCalendar(containerId = 'fitness-schedule-calendar') {
+  const container = document.getElementById(containerId);
+  if (!container || !state.currentUser) return;
+
+  const isAdmin = state.currentUser.role === 'admin';
+  const today = getTodayStr();
+  if (!state.scheduleCalendarMonth) {
+    state.scheduleCalendarMonth = (state.selectedAttendanceDate || today).slice(0, 7);
+  }
+  const ym = state.scheduleCalendarMonth;
+  const [year, month] = ym.split('-').map(Number);
+  const firstDayWeek = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const activeDate = state.selectedAttendanceDate || today;
+
+  const dayCells = [];
+  for (let i = 0; i < firstDayWeek; i++) {
+    dayCells.push(`<div class="p-1.5 rounded-xl bg-transparent"></div>`);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${ym}-${String(day).padStart(2, '0')}`;
+    const schedType = getDateScheduleType(dateStr);
+    const isToday = dateStr === today;
+    const isSelected = dateStr === activeDate;
+    const realLeavesOnDay = getRealLeaves().filter(l => l.leave_date === dateStr);
+    const myLeave = realLeavesOnDay.find(isOwnedByCurrentUser);
+    const myFit = state.fitness.find(f => f.target_date === dateStr && isOwnedByCurrentUser(f));
+
+    let badgeHtml = '';
+    if (schedType === '練球') {
+      badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">🏐 練球</span>`;
+    } else if (schedType === '體能') {
+      badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-stone-700 text-stone-100 text-[10px] font-extrabold">💪 體能</span>`;
+    } else if (schedType === '練球+體能') {
+      badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">🏐練球+💪體能</span>`;
+    }
+
+    let userReminderHtml = '';
+    if (!isAdmin && schedType !== 'none') {
+      if ((schedType === '練球' || schedType === '練球+體能') && myLeave) {
+        userReminderHtml += `<div class="text-[10px] font-bold text-stone-600 truncate">○ 已請假</div>`;
+      }
+      if (schedType === '體能' || schedType === '練球+體能') {
+        userReminderHtml += myFit && myFit.is_completed
+          ? `<div class="text-[10px] font-bold text-matte-ink truncate">● 體能已練</div>`
+          : `<div class="text-[10px] font-extrabold text-matte-ink underline truncate">! 記得練體能</div>`;
+      }
+    } else if (isAdmin && realLeavesOnDay.length > 0) {
+      userReminderHtml = `<div class="text-[10px] font-bold text-matte-muted truncate">請假 ${realLeavesOnDay.length} 人</div>`;
+    }
+
+    dayCells.push(`
+      <button type="button" onclick="selectAttendanceDate('${dateStr}')"
+        class="min-h-[68px] sm:min-h-[78px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+          isSelected
+            ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
+            : schedType !== 'none'
+              ? 'bg-matte-card border-stone-400 hover:border-stone-600 shadow-2xs'
+              : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
+        }">
+        <div class="w-full flex items-center justify-between gap-1">
+          <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
+          ${schedType !== 'none' ? `<span class="w-2 h-2 rounded-full bg-[#1c1b18] shrink-0"></span>` : ''}
+        </div>
+        <div class="w-full space-y-0.5 mt-1 overflow-hidden">
+          ${badgeHtml || `<span class="text-[10px] text-matte-muted block">-</span>`}
+          ${userReminderHtml}
+        </div>
+      </button>
+    `);
+  }
+
+  const activeSchedType = getDateScheduleType(activeDate);
+
+  container.innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4"></i>
+            <span>🏐 練球與體能排程日曆（${isAdmin ? '管理者點選日期即可設定哪天練球 / 體能' : '請依日曆排程記得練體能、若無法出席練球記得請假'}）</span>
+          </h3>
+        </div>
+        <p class="text-xs text-matte-muted mt-0.5">
+          ${isAdmin
+            ? '💡 管理者操作：點選下方日曆任一日期後，可一鍵設定該日為「🏐 練球」、「💪 體能」或「🏐 練球+體能」（設為體能日將自動為全隊建立當日體能表）'
+            : '💡 球員提醒：日曆標示「🏐 練球」之日期若無法到場請記得按下方按鈕請假；標示「💪 體能」之日期請記得完成體能訓練！'}
+        </p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="changeScheduleMonth(-1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">&larr; 上個月</button>
+        <span class="px-3 py-1.5 rounded-xl bg-[#1c1b18] text-stone-100 text-xs sm:text-sm font-extrabold">${year} 年 ${month} 月</span>
+        <button type="button" onclick="changeScheduleMonth(1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">下個月 &rarr;</button>
+      </div>
+    </div>
+
+    <!-- 星期標題列 -->
+    <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-matte-muted">
+      <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+    </div>
+
+    <!-- 月曆格線 -->
+    <div class="grid grid-cols-7 gap-1.5">
+      ${dayCells.join('')}
+    </div>
+
+    <!-- 點選日期之互動操作列 (管理者設定練球/體能；球員快速請假或填寫體能) -->
+    <div class="p-3.5 rounded-2xl bg-matte-sub border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="space-y-0.5">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 已選日期：${escapeHtml(activeDate)}</span>
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold ${activeSchedType !== 'none' ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
+            目前排程：${activeSchedType === 'none' ? '未排定練球/體能' : activeSchedType}
+          </span>
+        </div>
+        <p class="text-[11px] text-matte-muted">
+          ${isAdmin
+            ? '請點選右側按鈕設定此日期的球隊行程（全隊日曆將即時同步顯示）：'
+            : '若該日有排定練球但無法出席，請記得登記請假；若有排定體能請記得完成體能訓練：'}
+        </p>
+      </div>
+
+      ${isAdmin ? `
+        <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+          <button type="button" onclick="setAdminScheduleForDate('${activeDate}', '練球')"
+            class="px-3 py-2 rounded-xl text-xs font-bold transition ${activeSchedType === '練球' ? 'bg-[#1c1b18] text-stone-100 ring-2 ring-stone-500' : 'bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border'}">
+            🏐 設為練球日
+          </button>
+          <button type="button" onclick="setAdminScheduleForDate('${activeDate}', '體能')"
+            class="px-3 py-2 rounded-xl text-xs font-bold transition ${activeSchedType === '體能' ? 'bg-[#1c1b18] text-stone-100 ring-2 ring-stone-500' : 'bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border'}">
+            💪 設為體能日
+          </button>
+          <button type="button" onclick="setAdminScheduleForDate('${activeDate}', '練球+體能')"
+            class="px-3 py-2 rounded-xl text-xs font-bold transition ${activeSchedType === '練球+體能' ? 'bg-[#1c1b18] text-stone-100 ring-2 ring-stone-500' : 'bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border'}">
+            🏐+💪 練球+體能
+          </button>
+          <button type="button" onclick="setAdminScheduleForDate('${activeDate}', 'none')"
+            class="px-2.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-muted hover:text-matte-ink border border-matte-border text-xs font-bold transition">
+            取消排程
+          </button>
+        </div>
+      ` : `
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
+            class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
+            <span>此日要請假 (${activeDate.slice(5)})</span>
+          </button>
+          <button type="button" onclick="goToFitnessForDate('${activeDate}')"
+            class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
+            <span>前往填寫此日體能</span>
+          </button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function openLeaveModalForDate(dateStr) {
+  openLeaveModal();
+  const dEl = document.getElementById('leave-date');
+  if (dEl && dateStr) {
+    dEl.value = dateStr;
+    renderModalEquipmentSlot('leave-equip-slot', dateStr);
+  }
+}
+
+function goToFitnessForDate(dateStr) {
+  state.selectedFitnessDate = dateStr;
+  switchTab('fitness');
+  const myFit = state.fitness.find(f => f.target_date === dateStr && isOwnedByCurrentUser(f));
+  if (myFit) {
+    promptFitnessNote(myFit.id);
+  } else {
+    showToast(`已切換至 ${dateStr} 體能檢視，若無指派紀錄可點選「新增補體能紀錄」`, 'info');
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 借還器材日曆與防重複借用系統
+// 規則：
+// 1. 每位隊員每個月（1-31日）須至少借一次器材
+// 2. 如果該日期的「借器材」或「還器材」已經有人借了，則不能有重複的人借
+// 3. 一天練球「借＋還」算兩次（單獨借算1次、單獨還算1次）
+// 4. 以日曆方式呈現
+// ----------------------------------------------------------------------------
+async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null) {
+  if (!state.currentUser) return false;
+  const isAdmin = state.currentUser.role === 'admin';
+  const actor = targetUserObj || state.currentUser;
+  const st = getDateEquipmentStatus(dateStr);
+
+  if (actionType === 'cancel_my') {
+    const myRecs = st.rawRecords.filter(r => r.user_name === actor.name || r.user_id === actor.id || isAdmin);
+    if (myRecs.length === 0) return false;
+    const delIds = myRecs.map(r => r.id);
+    state.leaves = state.leaves.filter(r => !delIds.includes(r.id));
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').delete().in('id', delIds);
+    }
+    await notifyRealtimePeers();
+    renderAll();
+    showToast(`已取消 ${dateStr} 的借還器材登記`, 'info');
+    return true;
+  }
+
+  // 檢查是否已被其他人借走 (不能有重複的人借)
+  if (actionType === '借器材' || actionType === '借還器材') {
+    if (st.borrower && st.borrower.user_name !== actor.name) {
+      showToast(`${dateStr} 的「借器材」已由 ${st.borrower.user_name} 登記，同一天不能重複借！`, 'error');
+      return false;
+    }
+  }
+  if (actionType === '還器材' || actionType === '借還器材') {
+    if (st.returner && st.returner.user_name !== actor.name) {
+      showToast(`${dateStr} 的「還器材」已由 ${st.returner.user_name} 登記，同一天不能重複登記！`, 'error');
+      return false;
+    }
+  }
+
+  // 先清除該使用者在當天既有的器材紀錄，再寫入新狀態
+  const myOldIds = st.rawRecords.filter(r => r.user_name === actor.name || r.user_id === actor.id).map(r => r.id);
+  if (myOldIds.length > 0) {
+    state.leaves = state.leaves.filter(r => !myOldIds.includes(r.id));
+    if (state.isSupabaseReady) {
+      await supabaseClient.from('team_leaves').delete().in('id', myOldIds);
+    }
+  }
+
+  // 若原先已分開登記借與還，且合併後同一人同時擁有借與還，統一為「借還器材」(算2次)
+  let finalType = actionType;
+  const updatedSt = getDateEquipmentStatus(dateStr);
+  if (
+    (actionType === '借器材' && updatedSt.returner && updatedSt.returner.user_name === actor.name) ||
+    (actionType === '還器材' && updatedSt.borrower && updatedSt.borrower.user_name === actor.name)
+  ) {
+    finalType = '借還器材';
+  }
+
+  const newEquipRec = {
+    id: generateUUID(),
+    user_id: actor.id,
+    user_name: actor.name,
+    leave_date: dateStr,
+    leave_type: finalType, // '借器材' (1次) | '還器材' (1次) | '借還器材' (2次)
+    session_name: '__SYS_EQUIP__',
+    reason: finalType === '借還器材' ? '一天練球借+還器材 (算2次)' : `${finalType} (算1次)`,
+    status: '已核准',
+    created_at: new Date().toISOString()
+  };
+
+  state.leaves.unshift(newEquipRec);
+  if (state.isSupabaseReady) {
+    await supabaseClient.from('team_leaves').insert([{
+      id: newEquipRec.id,
+      user_id: newEquipRec.user_id,
+      user_name: newEquipRec.user_name,
+      leave_date: newEquipRec.leave_date,
+      leave_type: newEquipRec.leave_type,
+      session_name: newEquipRec.session_name,
+      reason: newEquipRec.reason,
+      status: newEquipRec.status,
+      created_at: newEquipRec.created_at
+    }]);
+  }
+
+  state.selectedEquipDate = dateStr;
+  await notifyRealtimePeers();
+  renderAll();
+  const countAdded = finalType === '借還器材' ? 2 : 1;
+  showToast(`已登記 ${actor.name} 於 ${dateStr}「${finalType}」（本月次數 +${countAdded} 次）！`, 'success');
+  return true;
+}
+
+function selectEquipCalendarDate(dateStr) {
+  state.selectedEquipDate = dateStr;
+  renderEquipmentCalendarBoard('leaves-equipment-calendar-board');
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
+  renderEquipmentCalendarBoard('equipment-calendar-board');
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
+  lucide.createIcons();
+}
+
+function renderEquipmentCalendarBoard(containerId = 'leaves-equipment-calendar-board') {
+  const container = document.getElementById(containerId);
+  if (!container || !state.currentUser) return;
+
+  const isAdmin = state.currentUser.role === 'admin';
+  const today = getTodayStr();
+  if (!state.equipmentCalendarMonth) {
+    state.equipmentCalendarMonth = today.slice(0, 7);
+  }
+  if (!state.selectedEquipDate || !state.selectedEquipDate.startsWith(state.equipmentCalendarMonth)) {
+    state.selectedEquipDate = `${state.equipmentCalendarMonth}-${today.slice(0, 7) === state.equipmentCalendarMonth ? today.slice(8, 10) : '01'}`;
+  }
+
+  const ym = state.equipmentCalendarMonth;
+  const [year, month] = ym.split('-').map(Number);
+  const firstDayWeek = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const activeDate = state.selectedEquipDate;
+
+  const monthlyStats = getMonthlyEquipmentCounts(ym);
+  const myStat = monthlyStats.find(m => m.user.name === state.currentUser.name || m.user.id === state.currentUser.id);
+  const metQuotaCount = monthlyStats.filter(m => m.count >= 1).length;
+
+  const dayCells = [];
+  for (let i = 0; i < firstDayWeek; i++) {
+    dayCells.push(`<div class="p-1.5 rounded-xl bg-transparent"></div>`);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${ym}-${String(day).padStart(2, '0')}`;
+    const eqSt = getDateEquipmentStatus(dateStr);
+    const schedType = getDateScheduleType(dateStr);
+    const isSelected = dateStr === activeDate;
+    const isToday = dateStr === today;
+
+    let slotHtml = '';
+    if (eqSt.borrower && eqSt.returner && eqSt.borrower.user_name === eqSt.returner.user_name) {
+      slotHtml = `<div class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold truncate">🏐 ${escapeHtml(eqSt.borrower.user_name)} (借+還×2)</div>`;
+    } else {
+      if (eqSt.borrower) {
+        slotHtml += `<div class="px-1 py-0.2 rounded bg-stone-800 text-stone-100 text-[10px] font-bold truncate">借:${escapeHtml(eqSt.borrower.user_name)}</div>`;
+      }
+      if (eqSt.returner) {
+        slotHtml += `<div class="px-1 py-0.2 rounded bg-stone-600 text-stone-100 text-[10px] font-bold truncate">還:${escapeHtml(eqSt.returner.user_name)}</div>`;
+      }
+    }
+
+    dayCells.push(`
+      <button type="button" onclick="selectEquipCalendarDate('${dateStr}')"
+        class="min-h-[70px] sm:min-h-[82px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+          isSelected
+            ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
+            : (eqSt.borrower || eqSt.returner)
+              ? 'bg-matte-card border-stone-500 shadow-2xs'
+              : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
+        }">
+        <div class="w-full flex items-center justify-between gap-1">
+          <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
+          ${schedType !== 'none' ? `<span class="text-[9px] font-bold px-1 rounded bg-stone-300 text-matte-ink">${escapeHtml(schedType)}</span>` : ''}
+        </div>
+        <div class="w-full space-y-0.5 mt-1 overflow-hidden">
+          ${slotHtml || `<span class="text-[10px] text-matte-muted block">尚無人借器材</span>`}
+        </div>
+      </button>
+    `);
+  }
+
+  const activeEq = getDateEquipmentStatus(activeDate);
+  const canBorrow = !activeEq.borrower;
+  const canReturn = !activeEq.returner;
+  const canBoth = canBorrow && canReturn;
+  const isMyRecordOnDate = (activeEq.borrower && activeEq.borrower.user_name === state.currentUser.name) ||
+                           (activeEq.returner && activeEq.returner.user_name === state.currentUser.name);
+
+  container.innerHTML = `
+    <div id="leaves-practice-schedule-calendar-inner" class="pb-4 border-b border-matte-border space-y-4"></div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
+            <i data-lucide="package" class="w-4 h-4"></i>
+            <span>📦 排球隊借還器材日曆（每月 1～31 日每人須至少借 1 次器材）</span>
+          </h3>
+          <span class="px-2.5 py-0.5 rounded-md bg-[#1c1b18] text-stone-100 text-[11px] font-bold">一天練球借+還算 2 次</span>
+        </div>
+        <p class="text-xs text-matte-muted mt-0.5">
+          規則：同一日期若已有隊員登記借器材，其他人不可重複借；一天練球負責「借＋還」直接算 2 次！
+        </p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="changeEquipMonth(-1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">&larr; 上個月</button>
+        <span class="px-3 py-1.5 rounded-xl bg-[#1c1b18] text-stone-100 text-xs sm:text-sm font-extrabold">${year} 年 ${month} 月 (1~${daysInMonth}日)</span>
+        <button type="button" onclick="changeEquipMonth(1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">下個月 &rarr;</button>
+      </div>
+    </div>
+
+    <!-- 個人或全隊本月達標橫幅 -->
+    ${!isAdmin && myStat ? `
+      <div class="p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+        myStat.count >= 1 ? 'bg-[#1c1b18] text-stone-100 border-stone-800' : 'bg-stone-200 text-matte-ink border-stone-400'
+      }">
+        <div>
+          <span class="text-xs sm:text-sm font-extrabold">
+            ${myStat.count >= 1
+              ? `● 您在 ${month} 月份（1~${daysInMonth}日）已累計借還器材 ${myStat.count} 次（已達成每月至少 1 次規定！）`
+              : `⚠️ 提醒：您在 ${month} 月份（1~${daysInMonth}日）目前借還器材 0 次，請點選下方日曆空檔登記借器材（至少須 1 次）！`}
+          </span>
+          ${myStat.dates.length > 0 ? `<p class="text-[11px] opacity-80 mt-0.5">本月登記紀錄：${escapeHtml(myStat.dates.join('、'))}</p>` : ''}
+        </div>
+        <span class="px-3 py-1 rounded-lg text-xs font-extrabold shrink-0 ${myStat.count >= 1 ? 'bg-stone-800 text-stone-100' : 'bg-[#1c1b18] text-stone-100'}">
+          本月累計：${myStat.count} 次
+        </span>
+      </div>
+    ` : `
+      <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border flex items-center justify-between">
+        <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${year} 年 ${month} 月全隊借還器材達標進度（每月至少 1 次）：</span>
+        <span class="px-3 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-extrabold">已達標 ${metQuotaCount} / ${monthlyStats.length} 人</span>
+      </div>
+    `}
+
+    <!-- 星期標題列 -->
+    <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-matte-muted">
+      <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+    </div>
+
+    <!-- 借還器材月曆格線 -->
+    <div class="grid grid-cols-7 gap-1.5">
+      ${dayCells.join('')}
+    </div>
+
+    <!-- 點選日期之借還器材登記面板 (防重複借用鎖定) -->
+    <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 ${escapeHtml(activeDate)} 借還器材狀態：</span>
+          <div class="flex flex-wrap items-center gap-2 mt-1 text-xs">
+            <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.borrower ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-muted border border-matte-border'}">
+              📦 借器材：${activeEq.borrower ? `${escapeHtml(activeEq.borrower.user_name)} (已登記鎖定)` : '尚無人借 (可登記)'}
+            </span>
+            <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.returner ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-muted border border-matte-border'}">
+              📥 還器材：${activeEq.returner ? `${escapeHtml(activeEq.returner.user_name)} (已登記鎖定)` : '尚無人還 (可登記)'}
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button type="button" ${!canBorrow ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借器材')"
+            class="px-3 py-2 rounded-xl text-xs font-bold transition ${
+              canBorrow
+                ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 shadow-xs'
+                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+            }">
+            ${canBorrow ? '📦 登記借器材 (+1次)' : `📦 借器材已由 ${escapeHtml(activeEq.borrower.user_name)} 登記`}
+          </button>
+
+          <button type="button" ${!canReturn ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '還器材')"
+            class="px-3 py-2 rounded-xl text-xs font-bold transition ${
+              canReturn
+                ? 'bg-stone-700 hover:bg-stone-600 text-stone-100 shadow-xs'
+                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+            }">
+            ${canReturn ? '📥 登記還器材 (+1次)' : `📥 還器材已由 ${escapeHtml(activeEq.returner.user_name)} 登記`}
+          </button>
+
+          <button type="button" ${!canBoth ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借還器材')"
+            class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition ${
+              canBoth
+                ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 ring-2 ring-stone-400 shadow-xs'
+                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+            }">
+            🏐 一天練球借＋還 (+2次)
+          </button>
+
+          ${(isMyRecordOnDate || (isAdmin && (activeEq.borrower || activeEq.returner))) ? `
+            <button type="button" onclick="handleEquipmentBooking('${activeDate}', 'cancel_my')"
+              class="px-3 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition">
+              取消當日登記
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- 全隊每月 (1-31日) 借還器材次數統計一覽表 -->
+    <div class="pt-2 border-t border-matte-border space-y-2">
+      <div class="flex items-center justify-between flex-wrap gap-1">
+        <span class="text-xs font-extrabold text-matte-ink">📋 ${year} 年 ${month} 月（1～${daysInMonth}日）全隊隊員借還器材次數統計（每人每月須至少 1 次）：</span>
+        <span class="text-[11px] text-matte-muted">● 代表本月已達標（≥1次）｜○ 代表本月尚未借器材（0次）</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+        ${monthlyStats.map(item => {
+          const ok = item.count >= 1;
+          return `
+            <div class="p-2.5 rounded-xl border ${ok ? 'bg-matte-card border-stone-400' : 'bg-matte-sub border-matte-border'} space-y-1">
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-extrabold text-xs text-matte-ink truncate">${ok ? '●' : '○'} ${escapeHtml(item.user.name)}</span>
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
+                  ok ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'
+                }">${item.count} 次</span>
+              </div>
+              <p class="text-[10px] text-matte-muted truncate">${item.dates.length > 0 ? escapeHtml(item.dates.join('、')) : '本月尚未借還器材'}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// 在原本照片位置的彈窗內渲染「當日借還器材選擇器」（檢查該日是否已有人借，防止重複人借）
+function renderModalEquipmentSlot(slotContainerId, dateStr) {
+  const wrap = document.getElementById(slotContainerId);
+  if (!wrap || !state.currentUser) return;
+  const d = dateStr || getTodayStr();
+  const eqSt = getDateEquipmentStatus(d);
+  const myName = state.currentUser.name;
+
+  const borrowTakenByOther = eqSt.borrower && eqSt.borrower.user_name !== myName;
+  const returnTakenByOther = eqSt.returner && eqSt.returner.user_name !== myName;
+  const bothTakenByOther = borrowTakenByOther || returnTakenByOther;
+
+  let currentVal = 'none';
+  if (eqSt.borrower?.user_name === myName && eqSt.returner?.user_name === myName) currentVal = '借還器材';
+  else if (eqSt.borrower?.user_name === myName) currentVal = '借器材';
+  else if (eqSt.returner?.user_name === myName) currentVal = '還器材';
+
+  wrap.innerHTML = `
+    <select id="${slotContainerId}-select" class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-xl text-xs sm:text-sm font-bold text-matte-ink">
+      <option value="none" ${currentVal === 'none' ? 'selected' : ''}>不登記借還器材（或維持現狀）</option>
+      <option value="借器材" ${borrowTakenByOther ? 'disabled' : ''} ${currentVal === '借器材' ? 'selected' : ''}>
+        📦 借器材（算 1 次）${borrowTakenByOther ? `— 已由 ${escapeHtml(eqSt.borrower.user_name)} 借用` : ''}
+      </option>
+      <option value="還器材" ${returnTakenByOther ? 'disabled' : ''} ${currentVal === '還器材' ? 'selected' : ''}>
+        📥 還器材（算 1 次）${returnTakenByOther ? `— 已由 ${escapeHtml(eqSt.returner.user_name)} 登記` : ''}
+      </option>
+      <option value="借還器材" ${bothTakenByOther ? 'disabled' : ''} ${currentVal === '借還器材' ? 'selected' : ''}>
+        🏐 一天練球借＋還器材（算 2 次）${bothTakenByOther ? '— 當日已有他人登記不可重複' : ''}
+      </option>
+    </select>
+    <p class="text-[11px] text-matte-muted">
+      📅 日期 ${escapeHtml(d)}：借器材【${eqSt.borrower ? escapeHtml(eqSt.borrower.user_name) : '無人'}】／ 還器材【${eqSt.returner ? escapeHtml(eqSt.returner.user_name) : '無人'}】
+    </p>
+  `;
+}
+
 function selectAttendanceDate(dateStr) {
   if (!dateStr) return;
   state.selectedAttendanceDate = dateStr;
   renderLeavesSection();
+  renderPracticeScheduleCalendar('fitness-schedule-calendar');
   renderDashboardSection();
   lucide.createIcons();
 }
@@ -2605,7 +3460,7 @@ function renderTeamAttendanceBoard() {
   const dateSet = new Set();
   const today = getTodayStr();
   dateSet.add(today);
-  state.leaves.forEach(l => {
+  getRealLeaves().forEach(l => {
     if (l.leave_date) dateSet.add(l.leave_date);
   });
   state.fitness.forEach(f => {
@@ -2614,14 +3469,14 @@ function renderTeamAttendanceBoard() {
   const allDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
 
   if (!state.selectedAttendanceDate) {
-    const latestLeaveDate = state.leaves.length > 0
-      ? [...state.leaves].sort((a, b) => (b.leave_date || '').localeCompare(a.leave_date || ''))[0].leave_date
+    const realLeaves = getRealLeaves(); const latestLeaveDate = realLeaves.length > 0
+      ? [...realLeaves].sort((a, b) => (b.leave_date || '').localeCompare(a.leave_date || ''))[0].leave_date
       : today;
     state.selectedAttendanceDate = latestLeaveDate || today;
   }
 
   const activeDate = state.selectedAttendanceDate;
-  const leavesOnDate = state.leaves.filter(l => l.leave_date === activeDate);
+  const leavesOnDate = getRealLeaves().filter(l => l.leave_date === activeDate);
   const leaveByUserName = new Map();
   leavesOnDate.forEach(l => {
     if (!leaveByUserName.has(l.user_name)) {
@@ -2657,7 +3512,7 @@ function renderTeamAttendanceBoard() {
 
   // 計算全隊有請假紀錄的日期總數（供統計每位球員累計出席率）
   const practiceDatesSet = new Set();
-  state.leaves.forEach(l => { if (l.leave_date) practiceDatesSet.add(l.leave_date); });
+  getRealLeaves().forEach(l => { if (l.leave_date) practiceDatesSet.add(l.leave_date); });
   state.fitness.forEach(f => { if (f.target_date) practiceDatesSet.add(f.target_date); });
   const totalSessionsCount = Math.max(1, practiceDatesSet.size);
 
@@ -2686,8 +3541,8 @@ function renderTeamAttendanceBoard() {
       <div class="flex flex-wrap gap-1.5">
         ${allDates.slice(0, 12).map(d => {
           const isSelected = d === activeDate;
-          const leaveCnt = state.leaves.filter(l => l.leave_date === d).length;
-          const attCnt = Math.max(0, totalPlayers - new Set(state.leaves.filter(l => l.leave_date === d).map(l => l.user_name)).size);
+          const leaveCnt = getRealLeaves().filter(l => l.leave_date === d).length;
+          const attCnt = Math.max(0, totalPlayers - new Set(getRealLeaves().filter(l => l.leave_date === d).map(l => l.user_name)).size);
           return `
             <button type="button" onclick="selectAttendanceDate('${escapeJsStr(d)}')"
               class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
@@ -2805,7 +3660,7 @@ function renderTeamAttendanceBoard() {
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
         ${playerUsers.map(u => {
-          const userLeaveCount = state.leaves.filter(l => l.user_id === u.id || l.user_name === u.name).length;
+          const userLeaveCount = getRealLeaves().filter(l => l.user_id === u.id || l.user_name === u.name).length;
           const userPresentCount = Math.max(0, totalSessionsCount - userLeaveCount);
           const userAttRate = Math.round((userPresentCount / totalSessionsCount) * 100);
           return `
@@ -2833,9 +3688,12 @@ function renderLeavesSection() {
   const isAdmin = state.currentUser.role === 'admin';
 
   renderTeamAttendanceBoard();
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
 
   // 全隊請假與出席紀錄開放所有使用者檢視，不再限制僅看自己
-  let list = [...state.leaves];
+  let list = [...getRealLeaves()];
+  renderEquipmentCalendarBoard('leaves-equipment-calendar-board');
+  renderPracticeScheduleCalendar('leaves-practice-schedule-calendar-inner');
 
   if (statusFilter !== 'all') {
     list = list.filter(l => l.leave_type === statusFilter);
@@ -2954,7 +3812,7 @@ function renderLeavesSection() {
               <button type="button" onclick="openLeaveMakeupModal('${l.id}')"
                 class="px-3 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
                 <i data-lucide="image" class="w-3.5 h-3.5"></i>
-                <span>編輯事由 / 請假證明照</span>
+                <span>編輯事由 / 借還器材</span>
               </button>
               <button type="button" onclick="switchTab('fitness'); openFitnessModal('player_makeup')"
                 class="px-3 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
@@ -2972,7 +3830,7 @@ function renderLeavesSection() {
         </div>
 
         <!-- 請假證明照片 (單欄呈現) -->
-        ${l.leave_photo ? `
+        ${(() => { const eq = getDateEquipmentStatus(l.leave_date); return `<div class="pt-2 border-t border-matte-border"><div class="p-3 rounded-xl bg-matte-sub border border-matte-border flex items-center justify-between gap-3 flex-wrap"><span class="text-xs font-extrabold text-matte-ink">📦 當日 (${escapeHtml(l.leave_date)}) 借還器材狀態：借【${eq.borrower ? escapeHtml(eq.borrower.user_name) : '尚無人登記'}】／ 還【${eq.returner ? escapeHtml(eq.returner.user_name) : '尚無人登記'}】</span></div></div>`; })()}${false ? `
           <div class="pt-2 border-t border-matte-border">
             <div class="p-3 rounded-xl bg-matte-sub border border-matte-border flex items-center justify-between gap-3">
               <div class="min-w-0">
@@ -3489,6 +4347,7 @@ function promptFitnessNote(id) {
     }
   }
 
+  renderModalEquipmentSlot('fit-rec-equip-slot', item.target_date);
   document.getElementById('modal-fitness-record').classList.remove('hidden');
 }
 
@@ -3508,6 +4367,10 @@ async function submitFitnessRecordForm(e) {
   if (markDone) item.is_completed = true;
   item.updated_at = new Date().toISOString();
 
+  const equipChoice = document.getElementById('fit-rec-equip-slot-select')?.value || 'none';
+  if (equipChoice && equipChoice !== 'none') {
+    await handleEquipmentBooking(item.target_date || getTodayStr(), equipChoice);
+  }
   closeModal('modal-fitness-record');
   renderAll();
 
@@ -3714,6 +4577,11 @@ function openLeaveModal() {
     userSelect.value = state.currentUser.id;
   }
 
+  renderModalEquipmentSlot('leave-equip-slot', getTodayStr());
+  const leaveDateInput = document.getElementById('leave-date');
+  if (leaveDateInput) {
+    leaveDateInput.onchange = () => renderModalEquipmentSlot('leave-equip-slot', leaveDateInput.value);
+  }
   document.getElementById('modal-leave').classList.remove('hidden');
 }
 
@@ -3743,6 +4611,10 @@ async function submitLeaveForm(e) {
     created_at: new Date().toISOString()
   };
 
+  const leaveEquipChoice = document.getElementById('leave-equip-slot-select')?.value || 'none';
+  if (leaveEquipChoice && leaveEquipChoice !== 'none') {
+    await handleEquipmentBooking(leaveDate, leaveEquipChoice, targetUser);
+  }
   closeModal('modal-leave');
   state.selectedAttendanceDate = leaveDate;
 
@@ -3797,6 +4669,7 @@ function openLeaveMakeupModal(leaveId) {
     leaveWrap.classList.add('hidden');
   }
 
+  renderModalEquipmentSlot('edit-leave-equip-slot', item.leave_date);
   document.getElementById('modal-leave-makeup').classList.remove('hidden');
 }
 
@@ -3810,6 +4683,10 @@ async function submitLeaveMakeupUpdate(e) {
   if (reasonEl) item.reason = reasonEl.value.trim();
   item.leave_photo = photoBuffer['edit-leave-photo-input'] || '';
 
+  const editEquipChoice = document.getElementById('edit-leave-equip-slot-select')?.value || 'none';
+  if (editEquipChoice && editEquipChoice !== 'none') {
+    await handleEquipmentBooking(item.leave_date, editEquipChoice);
+  }
   closeModal('modal-leave-makeup');
   renderAll();
 
@@ -4081,7 +4958,7 @@ async function submitMemberForm(e) {
     // 同步更新關聯紀錄上的顯示姓名
     state.fitness.forEach(f => { if (f.user_id === editId || f.user_name === oldName) f.user_name = name; });
     state.fees.forEach(f => { if (f.user_id === editId || f.user_name === oldName) f.user_name = name; });
-    state.leaves.forEach(l => { if (l.user_id === editId || l.user_name === oldName) l.user_name = name; });
+    getRealLeaves().forEach(l => { if (l.user_id === editId || l.user_name === oldName) l.user_name = name; });
 
     if (state.currentUser.id === editId) {
       state.currentUser = { ...target };

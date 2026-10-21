@@ -1,0 +1,33 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # 每天 UTC 00:00 (台灣時間早上 08:00) 自動執行一次
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 支援在 GitHub Actions 頁面手動點擊執行
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API (team_users)
+        env:
+          SUPABASE_REST_URL: 'https://mtorunczoyjvhmufaast.supabase.co/rest/v1/'
+          SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10b3J1bmN6b3lqdmhtdWZhYXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MTA5ODksImV4cCI6MjEwODA4Njk4OX0.ewbVgqhfJy5qWFXaI0awcefX_iOZYjK_Ly9wcFZyt5Q'
+        run: |
+          echo "Sending keep-alive request to Supabase..."
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            "${SUPABASE_REST_URL}team_users?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          cat /tmp/response.json
+          echo ""
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Supabase keep-alive successful!"
+          else
+            echo "Supabase keep-alive failed with status $HTTP_STATUS"
+            exit 1
+          fi

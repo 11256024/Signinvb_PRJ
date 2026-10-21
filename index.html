@@ -405,10 +405,10 @@
             <div id="dash-finance-card" class="bg-matte-card rounded-2xl shadow-sm border border-matte-border p-4 sm:p-5 flex flex-col">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="font-bold text-matte-ink flex items-center gap-2 text-sm sm:text-base">
-                  <i data-lucide="landmark" class="w-4 h-4 text-matte-ink"></i>
-                  <span>排球隊經費收支概況</span>
+                  <i data-lucide="package" class="w-4 h-4 text-matte-ink"></i>
+                  <span id="dash-equip-heading">排球隊借還器材狀況（誰借／誰還器材）</span>
                 </h3>
-                <button onclick="switchTab('finances')" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">查看全部經費 &rarr;</button>
+                <button onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);" class="text-xs font-bold text-matte-muted hover:text-matte-ink underline">前往借器材日曆 &rarr;</button>
               </div>
               <div id="dash-finance-summary" class="space-y-2.5 flex-1"></div>
             </div>
@@ -421,9 +421,17 @@
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 class="font-bold text-base text-matte-ink" id="fitness-section-title">排球隊體能與補體能紀錄</h2>
-                <p id="fitness-role-hint" class="text-xs text-matte-muted">體能與補體能整合管理（固定重訓與間歇格式：列為動作、欄為第一/二/三組，並支援補體能連結與照片）</p>
+                <p id="fitness-role-hint" class="text-xs text-matte-muted">體能與補體能整合管理（列為動作、欄為第一/二/三組，並支援練球/體能日曆與借還器材登記）</p>
               </div>
               <div class="flex flex-wrap items-center gap-2">
+                <!-- 練球/體能日曆排程面板與快速跳轉借器材日曆 -->
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="switchTab('leaves'); setTimeout(() => document.getElementById('leaves-equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
+                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs sm:text-sm font-bold transition">
+                    <i data-lucide="package" class="w-4 h-4"></i>
+                    <span>借還器材日曆</span>
+                  </button>
+                </div>
                 <!-- 一般球員可主動新增補體能紀錄 -->
                 <div id="fitness-player-actions" class="hidden flex-wrap items-center gap-2">
                   <button type="button" onclick="openFitnessModal('player_makeup')"
@@ -468,6 +476,7 @@
 
           <!-- 體能完成度進度條 -->
           <div id="fitness-progress-bar" class="bg-matte-card p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <div id="fitness-schedule-calendar" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
 
           <!-- 點選人名 × 點選日期 互動式「列為動作、欄為第一/二/三組」檢視面板 -->
           <div id="fitness-matrix-viewer" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
@@ -543,12 +552,12 @@
                   <h2 class="font-bold text-base text-matte-ink" id="leaves-section-title">排球隊請假登記與全隊出席情況</h2>
                   <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[11px] font-bold">全隊出席公開</span>
                 </div>
-                <p id="leaves-role-hint" class="text-xs text-matte-muted mt-0.5">請假免審核批准（需附請假證明照片）；一般使用者與管理者皆可查看全隊出席名單與請假狀況（補體能已整合至「體能」專區）</p>
+                <p id="leaves-role-hint" class="text-xs text-matte-muted mt-0.5">管理者點選日曆設定哪天練球/體能，使用者依據練球日曆若要請假記得請、要體能記得練，並於器材日曆登記每月借還器材</p>
               </div>
               <button type="button" id="btn-open-leave-modal" onclick="openLeaveModal()"
                 class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs sm:text-sm font-bold shadow-sm transition">
                 <i data-lucide="calendar-plus" class="w-4 h-4"></i>
-                <span>登記請假單 (附證明照片)</span>
+                <span>登記請假單 / 借還器材</span>
               </button>
             </div>
 
@@ -580,6 +589,9 @@
 
           <!-- 請假細項列表 -->
           <div id="leaves-list-container" class="space-y-3"></div>
+
+          <!-- 借還器材互動月曆與全隊每月次數統計容器 (整合顯示) -->
+          <div id="leaves-equipment-calendar-board" class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 5: 球隊經費收支狀況 (Finances - 全員皆可查看，管理者可記帳編輯) ==================== -->
@@ -647,6 +659,7 @@
 
           <!-- 經費收支細項流水帳 -->
           <div id="finance-list-container" class="space-y-2.5"></div>
+          <div id="equipment-calendar-board" class="hidden bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-4"></div>
         </section>
 
         <!-- ==================== TAB 6: 設定與帳號管理 (Settings - 使用者僅能改密碼；管理者可註冊帳號及改使用者姓名/帳號) ==================== -->
@@ -926,9 +939,11 @@
           <div>
             <label class="block text-xs font-bold text-matte-ink flex items-center gap-1.5 mb-1">
               <i data-lucide="camera" class="w-4 h-4"></i>
-              <span>📷 體能 / 補體能證明照片 (選填，可上傳運動紀錄、汗水照或碼錶截圖)</span>
+              <span>🏐 當日借還器材登記 (每月1-31日須至少借1次，一天練球借還算2次，已有人借則鎖定)</span>
             </label>
-            <input type="file" id="fit-rec-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'fit-rec-photo-wrap', 'fit-rec-photo-img')"
+            <input type="file" id="fit-rec-photo-input" class="hidden" />
+            <div id="fit-rec-equip-slot" class="space-y-1.5"></div>
+            <input type="hidden" data-old="
               class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100 hover:file:bg-stone-800" />
             <div id="fit-rec-photo-wrap" class="hidden pt-2 flex items-center gap-3">
               <img id="fit-rec-photo-img" src="" alt="體能與補體能證明預覽" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
@@ -1024,7 +1039,7 @@
   <div id="modal-leave" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[92dvh] flex flex-col overflow-hidden">
       <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
-        <h3 class="font-extrabold text-base">登記排球隊請假單 (附請假證明照片)</h3>
+        <h3 class="font-extrabold text-base">登記排球隊請假單與借還器材</h3>
         <button type="button" onclick="closeModal('modal-leave')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -1070,9 +1085,11 @@
         <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-2">
           <label class="block text-xs font-bold text-matte-ink flex items-center gap-1.5">
             <i data-lucide="camera" class="w-4 h-4"></i>
-            <span>📷 請假證明照片 (可拍照或從相簿選擇圖片)</span>
+            <span>🏐 當日借還器材登記 (每月1-31日須至少借1次，一天練球借還算2次，已有人借則鎖定)</span>
           </label>
-          <input type="file" id="leave-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'leave-photo-preview-wrap', 'leave-photo-preview-img')"
+          <input type="file" id="leave-photo-input" class="hidden" />
+          <div id="leave-equip-slot" class="space-y-1.5"></div>
+          <input type="hidden" data-old="
             class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100 hover:file:bg-stone-800" />
           <div id="leave-photo-preview-wrap" class="hidden pt-2 flex items-center gap-3">
             <img id="leave-photo-preview-img" src="" alt="請假證明預覽" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
@@ -1097,7 +1114,7 @@
   <div id="modal-leave-makeup" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
       <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
-        <h3 class="font-extrabold text-base">更新請假事由與證明照片</h3>
+        <h3 class="font-extrabold text-base">更新請假事由與借還器材登記</h3>
         <button type="button" onclick="closeModal('modal-leave-makeup')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -1116,8 +1133,10 @@
 
         <!-- 請假證明照片更新框 -->
         <div class="p-3.5 rounded-xl bg-matte-sub border border-matte-border space-y-2">
-          <label class="block text-xs font-bold text-matte-ink">📷 請假證明照片</label>
-          <input type="file" id="edit-leave-photo-input" accept="image/*" onchange="handlePhotoPreview(this, 'edit-leave-photo-wrap', 'edit-leave-photo-img')"
+          <label class="block text-xs font-bold text-matte-ink">🏐 當日借還器材登記 (每月1-31日須至少借1次，一天練球借還算2次)</label>
+          <input type="file" id="edit-leave-photo-input" class="hidden" />
+          <div id="edit-leave-equip-slot" class="space-y-1.5"></div>
+          <input type="hidden" data-old="
             class="w-full text-xs text-matte-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1c1b18] file:text-stone-100" />
           <div id="edit-leave-photo-wrap" class="hidden pt-2 flex items-center gap-3">
             <img id="edit-leave-photo-img" src="" alt="請假照片" class="w-20 h-20 object-cover rounded-xl border border-matte-border" />
