@@ -7668,33 +7668,40 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
     ${isAdmin ? `
       <!-- 管理者依照固定排程設定器材需求人數 (預設縮小，點擊展開) -->
-      <div class="rounded-2xl border border-matte-border bg-matte-sub overflow-hidden transition shadow-2xs">
-        <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
+      <div class="rounded-2xl bg-matte-card border border-matte-border overflow-hidden transition shadow-2xs">
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
           onclick="toggleEquipSection('rules')">
-          <div class="flex items-center gap-2 flex-wrap min-w-0">
-            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
-              ⚙️ 依固定排程設定器材需求人數（${escapeHtml(termCfg.titleLabel)}${curRules.length > 0 ? ` · 共 ${curRules.length} 筆固定排程` : ''}）
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="p-1.5 rounded-lg bg-[#1c1b18] text-stone-100 shrink-0">
+              <i data-lucide="sliders" class="w-4 h-4"></i>
             </span>
-            <span class="text-[11px] text-matte-muted">依照固定排程時段分別設定借還器材人數</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs sm:text-sm font-extrabold text-matte-ink">⚙️ 依固定排程設定器材需求人數</span>
+                <span class="px-2 py-0.5 rounded bg-matte-sub border border-matte-border text-matte-ink text-[11px] font-extrabold">${escapeHtml(termCfg.titleLabel)}</span>
+                ${curRules.length > 0 ? `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-bold">共 ${curRules.length} 筆固定排程</span>` : ''}
+              </div>
+              <p class="text-[11px] text-matte-muted mt-0.5 truncate">依照已排定的各固定排程時段分別設定借還器材人數</p>
+            </div>
           </div>
 
-          <div class="flex items-center gap-1.5 shrink-0 text-xs font-bold text-matte-muted">
-            <span>${isRulesOpen ? '收合' : '點擊展開'}</span>
-            <i data-lucide="${isRulesOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" onclick="event.stopPropagation(); switchTab('schedule'); switchAdminScheduleSubTab('batch');"
+              class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+              <span>排程設定 &rarr;</span>
+            </button>
+            <div class="flex items-center gap-1.5 shrink-0 text-xs font-bold text-matte-muted">
+              <span>${isRulesOpen ? '收合' : '點擊展開'}</span>
+              <i data-lucide="${isRulesOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
+            </div>
           </div>
         </div>
 
         ${isRulesOpen ? `
-          <div class="p-3.5 pt-0 space-y-3 border-t border-matte-border mt-1">
-            <div class="pt-3 flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="text-[11px] text-matte-muted">單日亦可於上方日曆單獨微調當日需求人數</p>
-                <button type="button" onclick="switchTab('schedule'); switchAdminScheduleSubTab('batch');"
-                  class="px-2.5 py-1 rounded-xl bg-matte-card hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
-                  <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                  <span>排程設定 &rarr;</span>
-                </button>
-              </div>
+          <div class="p-4 pt-0 space-y-3 border-t border-matte-border mt-1">
+            <div class="pt-3 flex items-center justify-between gap-2">
+              <p class="text-[11px] text-matte-muted">單日亦可於上方日曆單獨微調當日需求人數</p>
               ${curRules.length > 0 ? `
                 <button type="button" onclick="saveAllRuleEquipmentQuotas()"
                   class="px-3.5 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold shadow-2xs transition flex items-center gap-1">
