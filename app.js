@@ -7259,13 +7259,9 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
     let slotHtml = '';
     if (!isPractice) {
-      if (schedType === '放假') {
-        slotHtml = `<span class="text-[10px] text-stone-500 block truncate">🏖️ 放假停練</span>`;
-      } else {
-        slotHtml = `<span class="text-[10px] text-stone-400 block truncate">- 無練球 -</span>`;
-      }
+      slotHtml = '';
     } else if (!eqSt.needsEquipment) {
-      slotHtml = `<span class="text-[10px] text-stone-400 block truncate font-bold">- 免借器材 -</span>`;
+      slotHtml = `<span class="hidden sm:block text-[10px] text-stone-400 truncate font-bold">- 免借器材 -</span>`;
     } else {
       const bCount = eqSt.borrowers.length;
       const rCount = eqSt.returners.length;
@@ -7275,13 +7271,19 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
       if (isFull) {
         slotHtml = `
-          <div class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold truncate">
+          <!-- 電腦版完整標籤 -->
+          <div class="hidden sm:block px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold truncate">
             ✓ 器材額滿 (${bCount + rCount}人)
+          </div>
+          <!-- 手機版精簡標籤 -->
+          <div class="sm:hidden flex items-center justify-center w-full">
+            <span class="px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">滿</span>
           </div>
         `;
       } else {
         slotHtml = `
-          <div class="text-[10px] font-bold space-y-0.5 overflow-hidden">
+          <!-- 電腦版完整標籤 -->
+          <div class="hidden sm:block text-[10px] font-bold space-y-0.5 overflow-hidden">
             <div class="truncate ${bCount >= bQuota ? 'text-matte-ink font-extrabold' : 'text-stone-500'}">
               借 ${bCount}/${bQuota}人 ${bCount > 0 ? `(${eqSt.borrowers.map(x => x.user_name).join(',')})` : '缺'}
             </div>
@@ -7289,13 +7291,17 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
               還 ${rCount}/${rQuota}人 ${rCount > 0 ? `(${eqSt.returners.map(x => x.user_name).join(',')})` : '缺'}
             </div>
           </div>
+          <!-- 手機版精簡標籤 -->
+          <div class="sm:hidden flex items-center justify-center w-full">
+            <span class="px-1.5 py-0.2 rounded bg-stone-300 text-matte-ink border border-stone-400 text-[10px] font-extrabold">缺</span>
+          </div>
         `;
       }
     }
 
     dayCells.push(`
       <button type="button" onclick="selectEquipCalendarDate('${dateStr}')"
-        class="min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+        class="min-h-[56px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
           isSelected
             ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
             : !inSelectedPeriod
@@ -7309,12 +7315,12 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
         <div class="w-full flex items-center justify-between gap-1">
           <div class="flex items-center gap-1 min-w-0">
             <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
-            ${!inSelectedPeriod ? `<span class="text-[9px] px-1 rounded bg-stone-200 text-matte-muted font-bold truncate">${escapeHtml(dayTerm.period)}</span>` : ''}
+            ${!inSelectedPeriod ? `<span class="text-[9px] px-1 rounded bg-stone-200 text-matte-muted font-bold truncate hidden sm:inline">${escapeHtml(dayTerm.period)}</span>` : ''}
           </div>
-          ${schedType !== 'none' ? `<span class="text-[9px] font-bold px-1 rounded ${isPractice ? 'bg-stone-300 text-matte-ink' : 'bg-stone-200 text-matte-muted'} shrink-0">${escapeHtml(schedType)}</span>` : ''}
+          ${schedType !== 'none' ? `<span class="text-[9px] font-bold px-1 rounded ${isPractice ? 'bg-stone-300 text-matte-ink' : 'bg-stone-200 text-matte-muted'} shrink-0 hidden sm:inline">${escapeHtml(schedType)}</span>` : ''}
         </div>
         <div class="w-full space-y-0.5 mt-1 overflow-hidden">
-          ${milestoneBadge ? `<span class="px-1 py-0.1 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
+          ${milestoneBadge ? `<span class="px-1 py-0.1 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate hidden sm:block">${escapeHtml(milestoneBadge)}</span>` : ''}
           ${slotHtml}
         </div>
       </button>
@@ -7662,41 +7668,33 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
     ${isAdmin ? `
       <!-- 管理者依照固定排程設定器材需求人數 (預設縮小，點擊展開) -->
-      <div class="rounded-2xl bg-matte-card border border-matte-border overflow-hidden transition shadow-2xs">
-        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
+      <div class="rounded-2xl border border-matte-border bg-matte-sub overflow-hidden transition shadow-2xs">
+        <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
           onclick="toggleEquipSection('rules')">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="p-1.5 rounded-lg bg-[#1c1b18] text-stone-100 shrink-0">
-              <i data-lucide="sliders" class="w-4 h-4"></i>
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+              ⚙️ 依固定排程設定器材需求人數（${escapeHtml(termCfg.titleLabel)}${curRules.length > 0 ? ` · 共 ${curRules.length} 筆固定排程` : ''}）
             </span>
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs sm:text-sm font-extrabold text-matte-ink">⚙️ 依固定排程設定器材需求人數</span>
-                <span class="px-2 py-0.5 rounded bg-matte-sub border border-matte-border text-matte-ink text-[11px] font-extrabold">${escapeHtml(termCfg.titleLabel)}</span>
-                ${curRules.length > 0 ? `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-bold">共 ${curRules.length} 筆固定排程</span>` : ''}
-              </div>
-              <p class="text-[11px] text-matte-muted mt-0.5 truncate">依照已排定的各固定排程時段分別設定借還器材人數</p>
-            </div>
+            <span class="text-[11px] text-matte-muted">依照固定排程時段分別設定借還器材人數</span>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
-            <button type="button" onclick="switchTab('schedule'); switchAdminScheduleSubTab('batch');"
-              class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
-              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-              <span>排程設定 &rarr;</span>
-            </button>
-            <button type="button" onclick="toggleEquipSection('rules')"
-              class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-muted flex items-center gap-1">
-              <span>${isRulesOpen ? '收合' : '點擊展開'}</span>
-              <i data-lucide="${isRulesOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
-            </button>
+          <div class="flex items-center gap-1.5 shrink-0 text-xs font-bold text-matte-muted">
+            <span>${isRulesOpen ? '收合' : '點擊展開'}</span>
+            <i data-lucide="${isRulesOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
           </div>
         </div>
 
         ${isRulesOpen ? `
-          <div class="p-4 pt-0 space-y-3 border-t border-matte-border mt-1">
-            <div class="pt-3 flex items-center justify-between gap-2">
-              <p class="text-[11px] text-matte-muted">單日亦可於上方日曆單獨微調當日需求人數</p>
+          <div class="p-3.5 pt-0 space-y-3 border-t border-matte-border mt-1">
+            <div class="pt-3 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-[11px] text-matte-muted">單日亦可於上方日曆單獨微調當日需求人數</p>
+                <button type="button" onclick="switchTab('schedule'); switchAdminScheduleSubTab('batch');"
+                  class="px-2.5 py-1 rounded-xl bg-matte-card hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                  <span>排程設定 &rarr;</span>
+                </button>
+              </div>
               ${curRules.length > 0 ? `
                 <button type="button" onclick="saveAllRuleEquipmentQuotas()"
                   class="px-3.5 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold shadow-2xs transition flex items-center gap-1">
