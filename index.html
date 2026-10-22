@@ -213,7 +213,7 @@
           <h2 class="font-extrabold text-base tracking-tight text-stone-100 truncate">排球隊管理系統</h2>
           <div class="flex items-center gap-1.5 mt-0.5">
             <span id="sidebar-live-dot" class="w-2 h-2 rounded-full bg-stone-300 live-dot shrink-0"></span>
-            <span id="sidebar-live-text" class="text-[11px] text-stone-400 truncate">即時同步中</span>
+            <span id="sidebar-live-text" class="text-[11px] text-stone-400 leading-tight">Supabase 雲端即時同步中</span>
           </div>
         </div>
       </div>
@@ -346,17 +346,28 @@
               </button>
             </div>
 
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-matte-sub border border-matte-border text-xs font-medium text-matte-muted">
-              <i data-lucide="clock" class="w-3.5 h-3.5 text-matte-ink"></i>
-              <span id="last-sync-time">剛剛更新</span>
-            </span>
+            <!-- 縮小放在最上面的大標之日期細項篩選按鈕 (圖一按鈕) -->
+            <button type="button" id="btn-toggle-academic-filter" onclick="toggleAcademicFilterDropdown()"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-extrabold text-matte-ink transition shadow-2xs">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-matte-ink"></i>
+              <span id="header-academic-period-label">115 學年・上學期</span>
+              <i data-lucide="chevron-down" id="header-academic-chevron" class="w-3.5 h-3.5 text-matte-muted transition-transform duration-200"></i>
+            </button>
           </div>
+        </div>
+
+        <!-- 點擊最上方大標篩選按鈕才會跳出的日期細項篩選選單 (圖一選單) -->
+        <div id="header-academic-filter-dropdown" class="hidden transition-all duration-200">
+          <div id="header-academic-filter-content" class="bg-matte-card p-3 sm:p-4 rounded-2xl shadow-lg border border-matte-border"></div>
         </div>
 
         <!-- ==================== TAB 1: 總覽看板 (Dashboard) ==================== -->
         <section id="tab-dashboard" class="space-y-4 sm:space-y-5">
-          <!-- 學年度與期間快速切換橫幅 -->
-          <div id="dashboard-academic-period-bar" class="bg-matte-card p-3.5 sm:p-4 rounded-2xl shadow-sm border border-matte-border"></div>
+          <!-- 學年度與期間快速切換橫幅 (已縮小移至頂部大標，預設隱藏) -->
+          <div id="dashboard-academic-period-bar" class="hidden"></div>
+
+          <!-- 特殊行程與盃賽倒數計時橫幅 (盃賽倒數卡片) -->
+          <div id="dashboard-cup-countdown-bar" class="space-y-3"></div>
 
           <!-- KPI 統計卡片區 -->
           <div id="dashboard-stats-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"></div>
@@ -1087,6 +1098,15 @@
           </div>
         </div>
         <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假項目 (補練類別) *</label>
+          <select id="leave-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm">
+            <option value="請體能">🏋️ 請體能（需補體能）</option>
+            <option value="請練球">🏐 請練球（需補九個動作）</option>
+            <option value="請練球+體能">🔥 請練球+體能（兩者皆需補）</option>
+          </select>
+          <p class="text-[11px] text-matte-muted mt-1">系統依選擇項目自動累積「需補體能」或「需補九個動作」次數</p>
+        </div>
+        <div>
           <label class="block text-xs font-bold text-matte-muted mb-1">請假時段 *</label>
           <input type="text" id="leave-session" required placeholder="如：週三晚間練球"
             class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
@@ -1137,6 +1157,15 @@
         <input type="hidden" id="edit-leave-id" />
         <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-xs">
           <span class="font-bold text-matte-ink" id="edit-leave-summary-title">請假資訊</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">請假項目 (補練類別) *</label>
+          <select id="edit-leave-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm">
+            <option value="請體能">🏋️ 請體能（需補體能）</option>
+            <option value="請練球">🏐 請練球（需補九個動作）</option>
+            <option value="請練球+體能">🔥 請練球+體能（兩者皆需補）</option>
+          </select>
         </div>
 
         <div>
@@ -1324,6 +1353,136 @@
             class="w-full p-3 rounded-xl bg-[#181816] text-stone-300 font-mono text-xs leading-relaxed border border-stone-700"></textarea>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 7. 特殊行程與盃賽管理 Modal -->
+  <div id="modal-special-event" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base flex items-center gap-2">
+          <i data-lucide="trophy" class="w-5 h-5"></i>
+          <span id="special-event-modal-title">新增特殊行程 / 盃賽</span>
+        </h3>
+        <button type="button" onclick="closeModal('modal-special-event')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-special-event" onsubmit="submitSpecialEventForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="special-event-id" />
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">行程名稱 *</label>
+          <input type="text" id="special-event-title" required placeholder="如：北港媽祖盃排球錦標賽、迎新聚餐"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">類別 *</label>
+            <select id="special-event-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm">
+              <option value="盃賽">🏆 盃賽（主頁倒數計時）</option>
+              <option value="聚餐">🍻 迎新 / 隊聚</option>
+              <option value="友誼賽">🤝 友誼賽交流</option>
+              <option value="活動">📌 其他特殊活動</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">活動日期 *</label>
+            <input type="date" id="special-event-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">地點 (選填)</label>
+          <input type="text" id="special-event-location" placeholder="如：中興大學體育館、校外餐廳"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">備註說明 (選填)</label>
+          <textarea id="special-event-note" rows="2" placeholder="注意事項、集合時間等..."
+            class="w-full px-3.5 py-2 bg-matte-sub border border-matte-border rounded-xl text-sm"></textarea>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-special-event')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存行程</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. 當日出缺勤與器材輸出 Modal (一鍵複製或匯出文字檔) -->
+  <div id="modal-export-attendance" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[92dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base flex items-center gap-2">
+          <i data-lucide="share-2" class="w-5 h-5"></i>
+          <span>輸出當日練球名單 (LINE / 記事本)</span>
+        </h3>
+        <button type="button" onclick="closeModal('modal-export-attendance')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <label class="block text-xs font-bold text-matte-muted mb-1">選擇輸出日期</label>
+            <input type="date" id="export-attendance-date" onchange="updateAttendanceExportPreview(this.value)"
+              class="px-3.5 py-2 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm text-matte-ink" />
+          </div>
+          <div class="flex items-center gap-2 pt-2 sm:pt-4">
+            <button type="button" onclick="copyAttendanceExportText()"
+              class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+              <span>一鍵複製文字</span>
+            </button>
+            <button type="button" onclick="downloadAttendanceExportFile()"
+              class="px-3.5 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>下載文字檔</span>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">文字預覽（已自動排版，可直接貼至 LINE 記事本或群組）</label>
+          <textarea id="export-attendance-preview" rows="12" readonly
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-mono text-xs text-matte-ink leading-relaxed"></textarea>
+        </div>
+      </div>
+      <div class="p-4 border-t border-matte-border bg-matte-card flex justify-end">
+        <button type="button" onclick="closeModal('modal-export-attendance')" class="px-5 py-2 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. 登記完成九個動作 Modal (折抵練球請假) -->
+  <div id="modal-log-nine-actions" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-5 h-5"></i>
+          <span>登記完成九個動作 (折抵練球請假)</span>
+        </h3>
+        <button type="button" onclick="closeModal('modal-log-nine-actions')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-log-nine-actions" onsubmit="submitLogNineActions(event)" class="p-5 space-y-4">
+        <div id="nine-actions-user-wrap">
+          <label class="block text-xs font-bold text-matte-muted mb-1">球員 *</label>
+          <select id="nine-actions-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">完成日期 *</label>
+          <input type="date" id="nine-actions-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">備註 / 說明 (選填)</label>
+          <input type="text" id="nine-actions-note" placeholder="如：練球前自主完成九個動作、體能房完成"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl text-sm" />
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-log-nine-actions')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">確認折抵</button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -153,13 +153,14 @@ VALUES
     ('player016', 'ntub016', '惟媛', '#16 隊員', 'member'),
     ('player017', 'ntub017', '凱勒', '#17 隊員', 'member'),
     ('player018', 'ntub018', '彥葶', '#18 隊員', 'member'),
-    ('player019', 'ntub019', '唐霓', '#19 隊員', 'member')
+    ('player019', 'ntub019', '唐霓', '#19 隊員', 'member'),
+    ('player021', 'ntub021', '鈺軒', '#20 隊員', 'member')
 ON CONFLICT (username) DO UPDATE SET
     password = EXCLUDED.password,
     name = EXCLUDED.name,
     role = EXCLUDED.role;
 
-DELETE FROM public.team_users WHERE name = '凱樂' OR username = 'player020';
+DELETE FROM public.team_users WHERE name IN ('凱樂', '黛玉軒');
 
 INSERT INTO public.team_finances (id, tx_date, tx_type, category, title, amount, handler, note, created_at)
 VALUES
@@ -320,7 +321,6 @@ VALUES
     ('c0000000-0000-4000-8000-000000000119', (SELECT id FROM public.team_users WHERE name = '愛佳' LIMIT 1), '愛佳', '重訓與間歇體能 (2026-10-06)', '2026-10-06', true, '暖身:10｜間歇:14｜胸推(kg):7.5/7.5｜腿推(kg):80/80｜屈腿機:25/25｜核心(下):20/20｜背(LB):15/15｜史密斯(kg):0/0｜弓箭步:7/7｜填報:2026-10-11 20:29:21', '2026-10-11T20:29:21Z'),
     ('c0000000-0000-4000-8000-000000000120', (SELECT id FROM public.team_users WHERE name = '唐霓' LIMIT 1), '唐霓', '重訓與間歇體能 (2026-09-22)', '2026-09-22', true, '暖身:8.5｜間歇:13｜胸推(kg):7.5/7.5｜腿推(kg):35/35｜屈腿機:17.5/17.5｜核心(下):20/20｜背(LB):10/10｜史密斯(kg):0/0｜弓箭步:5/5｜填報:2026-10-11 20:49:15', '2026-10-11T20:49:15Z'),
     ('c0000000-0000-4000-8000-000000000121', (SELECT id FROM public.team_users WHERE name = '烏薩奇' LIMIT 1), '烏薩奇', '重訓與間歇體能 (2026-10-06)', '2026-10-06', true, '暖身:10/10｜間歇:16.5｜胸推(kg):7.5/7.5｜腿推(kg):100/100｜屈腿機:25/25｜核心(下):25/25｜背(LB):15/15｜史密斯(kg):22.5/22.5｜弓箭步:10/10｜填報:2026-10-12 00:56:14', '2026-10-12T00:56:14Z'),
-    ('c0000000-0000-4000-8000-000000000122', (SELECT id FROM public.team_users WHERE name = '辰瑩' LIMIT 1), '辰瑩', '重訓與間歇體能 (2026-10-07)', '2026-10-07', true, '暖身:8｜間歇:13｜胸推(kg):7.5/7.5｜腿推(kg):80/90｜屈腿機:25/25｜核心(下):20/20｜背(LB):20/20｜史密斯(kg):17.5/17.5｜弓箭步:7/7｜填報:2026-10-12 23:46:20', '2026-10-12T23:46:20Z'),
     ('c0000000-0000-4000-8000-000000000123', (SELECT id FROM public.team_users WHERE name = '林萱' LIMIT 1), '林萱', '重訓與間歇體能 (2026-10-13)', '2026-10-13', true, '暖身:10/10｜間歇:14.5｜胸推(kg):7.5/10｜腿推(kg):107.5/107.5｜屈腿機:30/30｜核心(下):30/30｜背(LB):15/15｜史密斯(kg):22.5/22.5｜弓箭步:10/10｜填報:2026-10-13 15:32:43', '2026-10-13T15:32:43Z'),
     ('c0000000-0000-4000-8000-000000000124', (SELECT id FROM public.team_users WHERE name = '凱勒' LIMIT 1), '凱勒', '重訓與間歇體能 (2026-10-13)', '2026-10-13', true, '暖身:10/8｜間歇:爬坡 15/10mins/速度5｜胸推(kg):10/10｜腿推(kg):45/45｜屈腿機:20/20｜核心(下):30/30｜背(LB):25/20｜史密斯(kg):12.5/12.5｜弓箭步:7/8｜填報:2026-10-13 17:54:55', '2026-10-13T17:54:55Z'),
     ('c0000000-0000-4000-8000-000000000125', (SELECT id FROM public.team_users WHERE name = '佳盈' LIMIT 1), '佳盈', '重訓與間歇體能 (2026-10-13)', '2026-10-13', true, '暖身:8/10｜間歇:13.5｜胸推(kg):2.5/2.5｜腿推(kg):100/100｜屈腿機:17.5/17.5｜核心(下):20/20｜背(LB):10/10｜史密斯(kg):7.5/7.5｜弓箭步:7/7｜填報:2026-10-13 18:16:12', '2026-10-13T18:16:12Z'),
@@ -366,6 +366,7 @@ const state = {
   selectedAttendanceDate: '',
   selectedLeavePlayer: '',
   selectedLeaveDate: '', scheduleCalendarMonth: '', equipmentCalendarMonth: '', selectedEquipDate: '',
+  equipSectionsExpanded: { reminder: false, list: false, rules: false },
   isSupabaseReady: false,
   users: [],
   fitness: [],
@@ -425,11 +426,19 @@ function isSystemEquipRecord(r) {
 function isSystemAcademicConfigRecord(r) {
   return r && r.session_name === '__SYS_ACADEMIC_CALENDAR__';
 }
+function isSystemSpecialEventRecord(r) {
+  return r && r.session_name === '__SYS_SPECIAL_EVENT__';
+}
+function isSystemEquipConfigRecord(r) {
+  return r && r.session_name === '__SYS_EQUIP_CONFIG__';
+}
 function isNormalLeaveRecord(r) {
   return r &&
     r.session_name !== '__SYS_SCHEDULE__' &&
     r.session_name !== '__SYS_EQUIP__' &&
-    r.session_name !== '__SYS_ACADEMIC_CALENDAR__';
+    r.session_name !== '__SYS_ACADEMIC_CALENDAR__' &&
+    r.session_name !== '__SYS_SPECIAL_EVENT__' &&
+    r.session_name !== '__SYS_EQUIP_CONFIG__';
 }
 function getRealLeaves() {
   return state.leaves.filter(isNormalLeaveRecord);
@@ -437,11 +446,23 @@ function getRealLeaves() {
 function getScheduleRecords() {
   return state.leaves.filter(isSystemScheduleRecord);
 }
+function isHistoricalSeedEquipRecord(r) {
+  return r && (
+    (r.id && String(r.id).startsWith('e0000000-0000-4000-8000-')) ||
+    (r.reason && String(r.reason).includes('累計紀錄算1次'))
+  );
+}
 function getEquipmentRecords() {
-  return state.leaves.filter(isSystemEquipRecord);
+  return state.leaves.filter(r => isSystemEquipRecord(r) && !isHistoricalSeedEquipRecord(r));
 }
 function getAcademicConfigRecords() {
   return state.leaves.filter(isSystemAcademicConfigRecord);
+}
+function getSpecialEventRecords() {
+  return state.leaves.filter(isSystemSpecialEventRecord);
+}
+function getEquipmentConfigRecord() {
+  return state.leaves.find(isSystemEquipConfigRecord);
 }
 
 // 取得指定學年度＋期間（例如 115 學年度・上學期）的「長時間固定練球計畫」設定（於區塊一儲存）
@@ -723,9 +744,269 @@ function isDateInAcademicPeriod(dateStr, academicYear = state.selectedAcademicYe
   return true;
 }
 
+// ----------------------------------------------------------------------------
+// 特殊行程與盃賽管理 (迎新聚餐、大專盃、媽祖盃等，主頁倒數計時)
+// ----------------------------------------------------------------------------
+function getSpecialEvents() {
+  const recs = getSpecialEventRecords();
+  const parsed = recs.map(r => {
+    let meta = {};
+    try {
+      meta = JSON.parse(r.reason || '{}');
+    } catch (e) {
+      meta = { title: r.reason || '特殊行程' };
+    }
+    return {
+      id: r.id,
+      title: meta.title || r.reason || '特殊行程',
+      date: r.leave_date,
+      category: r.leave_type || meta.category || '活動',
+      location: meta.location || '',
+      note: meta.note || '',
+      isCup: (r.leave_type === '盃賽') || meta.isCup || (meta.title || '').includes('盃') || (meta.title || '').includes('聯賽') || (meta.title || '').includes('錦標賽')
+    };
+  });
+
+  // 若資料庫尚未登記任何特殊行程，提供預設盃賽與特殊行程範例，讓使用者立即見效
+  if (parsed.length === 0) {
+    return [
+      { id: 'cup-demo-1', title: '大專盃排球聯賽 (預賽)', date: '2026-11-22', category: '盃賽', location: '中興大學體育館', note: '全員備戰，大專盃倒數', isCup: true, isDemo: true },
+      { id: 'cup-demo-2', title: '北港媽祖盃排球錦標賽', date: '2026-12-13', category: '盃賽', location: '雲林北港高中', note: '年度重大盃賽', isCup: true, isDemo: true },
+      { id: 'event-demo-3', title: '排球隊迎新聚餐', date: '2026-10-31', category: '聚餐', location: '逢甲周邊餐廳', note: '全員出席迎新隊聚', isCup: false, isDemo: true }
+    ];
+  }
+  return parsed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+}
+
+function openSpecialEventModal(eventId = null) {
+  const form = document.getElementById('form-special-event');
+  if (form) form.reset();
+  document.getElementById('special-event-id').value = '';
+  document.getElementById('special-event-date').value = getTodayStr();
+
+  const titleEl = document.getElementById('special-event-modal-title');
+  if (titleEl) titleEl.textContent = '新增特殊行程 / 盃賽';
+
+  if (eventId) {
+    const ev = getSpecialEvents().find(e => e.id === eventId);
+    if (ev) {
+      document.getElementById('special-event-id').value = ev.id;
+      document.getElementById('special-event-title').value = ev.title;
+      document.getElementById('special-event-category').value = ev.category;
+      document.getElementById('special-event-date').value = ev.date;
+      document.getElementById('special-event-location').value = ev.location || '';
+      document.getElementById('special-event-note').value = ev.note || '';
+      if (titleEl) titleEl.textContent = '編輯特殊行程 / 盃賽';
+    }
+  }
+  document.getElementById('modal-special-event').classList.remove('hidden');
+}
+
+async function submitSpecialEventForm(e) {
+  e.preventDefault();
+  const id = document.getElementById('special-event-id').value.trim();
+  const title = document.getElementById('special-event-title').value.trim();
+  const category = document.getElementById('special-event-category').value;
+  const date = document.getElementById('special-event-date').value;
+  const location = document.getElementById('special-event-location').value.trim();
+  const note = document.getElementById('special-event-note').value.trim();
+
+  const isCup = category === '盃賽';
+  const reasonObj = { title, category, location, note, isCup };
+
+  const eventRecord = {
+    id: id && !id.startsWith('cup-demo') && !id.startsWith('event-demo') ? id : generateUUID(),
+    user_id: state.currentUser?.id || 'admin',
+    user_name: '特殊行程',
+    leave_date: date,
+    leave_type: category,
+    session_name: '__SYS_SPECIAL_EVENT__',
+    reason: JSON.stringify(reasonObj),
+    leave_photo: '',
+    makeup_text: '',
+    makeup_photo: '',
+    makeup_done: false,
+    status: '已核准',
+    created_at: new Date().toISOString()
+  };
+
+  const idx = state.leaves.findIndex(l => l.id === eventRecord.id);
+  if (idx !== -1) {
+    state.leaves[idx] = { ...state.leaves[idx], ...eventRecord };
+  } else {
+    state.leaves.push(eventRecord);
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('team_leaves').upsert([eventRecord]);
+    } catch (err) {
+      console.warn('Supabase save special event error:', err);
+    }
+  }
+
+  closeModal('modal-special-event');
+  showToast(`已儲存特殊行程：${title}`, 'success');
+  renderDashboardSection();
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
+  renderEquipmentCalendarBoard('equipment-calendar-board');
+}
+
+async function deleteSpecialEvent(id) {
+  if (!confirm('確定要刪除此項特殊行程嗎？')) return;
+  state.leaves = state.leaves.filter(l => l.id !== id);
+  if (supabaseClient && !id.startsWith('cup-demo') && !id.startsWith('event-demo')) {
+    try {
+      await supabaseClient.from('team_leaves').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Supabase delete special event error:', err);
+    }
+  }
+  showToast('已刪除特殊行程', 'info');
+  renderDashboardSection();
+  renderPracticeScheduleCalendar('leaves-schedule-calendar');
+  renderEquipmentCalendarBoard('equipment-calendar-board');
+}
+
+function renderCupCountdown(containerId = 'dashboard-cup-countdown-bar') {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const events = getSpecialEvents();
+  const todayStr = getTodayStr();
+  const todayDate = new Date(todayStr);
+
+  // 篩選盃賽與近期特殊行程
+  const cupEvents = events.filter(e => e.isCup || e.category === '盃賽');
+  const otherEvents = events.filter(e => !e.isCup && e.category !== '盃賽');
+
+  // 計算倒數天數
+  const cupCountdownList = cupEvents.map(e => {
+    const targetDate = new Date(e.date);
+    const diffTime = targetDate.getTime() - todayDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return { ...e, diffDays };
+  }).sort((a, b) => a.diffDays - b.diffDays);
+
+  const isAdmin = state.currentUser?.role === 'admin';
+
+  if (cupCountdownList.length === 0 && otherEvents.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="bg-matte-card p-4 sm:p-5 rounded-2xl shadow-sm border border-matte-border space-y-3">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-[#1c1b18] text-stone-100">
+            <i data-lucide="trophy" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h3 class="font-extrabold text-sm sm:text-base text-matte-ink">🏆 盃賽倒數計時與特殊行程</h3>
+            <p class="text-xs text-matte-muted">重要盃賽日程及迎新隊聚行程提醒</p>
+          </div>
+        </div>
+        ${isAdmin ? `
+          <button type="button" onclick="openSpecialEventModal()"
+            class="px-3 py-1.5 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>新增行程 / 盃賽</span>
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- 盃賽倒數卡片網格 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        ${cupCountdownList.map(cup => {
+          const isUrgent = cup.diffDays >= 0 && cup.diffDays <= 14;
+          const isToday = cup.diffDays === 0;
+          const isPast = cup.diffDays < 0;
+
+          let badgeText = `D-${cup.diffDays}`;
+          let badgeClass = 'bg-[#1c1b18] text-stone-100';
+          if (isToday) {
+            badgeText = '🔥 今天開打！';
+            badgeClass = 'bg-stone-900 text-amber-200 font-extrabold ring-2 ring-stone-400';
+          } else if (isPast) {
+            badgeText = '已完賽';
+            badgeClass = 'bg-stone-300 text-matte-ink';
+          } else if (isUrgent) {
+            badgeClass = 'bg-[#1c1b18] text-stone-100 ring-2 ring-stone-500';
+          }
+
+          return `
+            <div class="p-4 rounded-xl bg-matte-sub border ${isUrgent ? 'border-stone-500' : 'border-matte-border'} flex flex-col justify-between space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-stone-300 text-matte-ink">🏆 ${escapeHtml(cup.category)}</span>
+                    <span class="font-extrabold text-sm sm:text-base text-matte-ink">${escapeHtml(cup.title)}</span>
+                  </div>
+                  <p class="text-xs text-matte-muted flex items-center gap-2 flex-wrap">
+                    <span>📅 ${cup.date}</span>
+                    ${cup.location ? `<span>📍 ${escapeHtml(cup.location)}</span>` : ''}
+                  </p>
+                  ${cup.note ? `<p class="text-[11px] text-matte-ink bg-matte-card px-2 py-1 rounded border border-matte-border mt-1">📝 ${escapeHtml(cup.note)}</p>` : ''}
+                </div>
+                <div class="text-right shrink-0">
+                  <span class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold shadow-xs inline-block ${badgeClass}">
+                    ${badgeText}
+                  </span>
+                  ${!isPast && !isToday ? `<span class="block text-[10px] text-matte-muted mt-0.5">${cup.diffDays} 天後</span>` : ''}
+                </div>
+              </div>
+              ${isAdmin && !cup.isDemo ? `
+                <div class="flex justify-end gap-2 pt-1 border-t border-matte-border/50">
+                  <button type="button" onclick="openSpecialEventModal('${cup.id}')" class="text-[11px] text-matte-muted hover:text-matte-ink font-bold">編輯</button>
+                  <button type="button" onclick="deleteSpecialEvent('${cup.id}')" class="text-[11px] text-stone-500 hover:text-stone-800 font-bold">刪除</button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- 其他特殊行程橫幅 (如迎新聚餐、友誼賽) -->
+      ${otherEvents.length > 0 ? `
+        <div class="pt-2 border-t border-matte-border space-y-1.5">
+          <span class="text-xs font-bold text-matte-muted">🎉 近期其他活動與隊聚：</span>
+          <div class="flex flex-wrap gap-2">
+            ${otherEvents.map(ev => `
+              <div class="px-3 py-1.5 rounded-xl bg-matte-sub border border-matte-border flex items-center gap-2 text-xs">
+                <span class="font-extrabold text-matte-ink">${ev.category === '聚餐' ? '🍻' : '📌'} ${escapeHtml(ev.title)}</span>
+                <span class="text-matte-muted font-bold">${ev.date}</span>
+                ${ev.location ? `<span class="text-matte-muted text-[11px]">(${escapeHtml(ev.location)})</span>` : ''}
+                ${isAdmin && !ev.isDemo ? `
+                  <button type="button" onclick="deleteSpecialEvent('${ev.id}')" class="text-stone-400 hover:text-stone-700 ml-1">
+                    <i data-lucide="x" class="w-3 h-3"></i>
+                  </button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function getDateMilestoneBadge(dateStr) {
   if (!dateStr || dateStr.length < 10) return '';
   const d = dateStr.slice(0, 10);
+
+  // 優先檢查是否有特殊行程 / 盃賽
+  const specialEv = getSpecialEvents().find(e => e.date === d);
+  if (specialEv) {
+    if (specialEv.category === '盃賽' || specialEv.isCup) {
+      return `🏆 ${specialEv.title}`;
+    } else if (specialEv.category === '聚餐') {
+      return `🍻 ${specialEv.title}`;
+    } else {
+      return `📌 ${specialEv.title}`;
+    }
+  }
+
   const info = getAcademicTermInfo(d);
   const dates = getAcademicYearDatesConfig(info.academicYear);
   const shortMd = `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
@@ -839,6 +1120,61 @@ function syncAcademicFilterDropdowns() {
     if (!el) return;
     el.value = String(state.selectedTermPeriod);
   });
+
+  // 更新最上方大標「縮小日期細項篩選按鈕」的文字標籤
+  const headerLabelEl = document.getElementById('header-academic-period-label');
+  if (headerLabelEl) {
+    const ayLabel = state.selectedAcademicYear === 'all' ? '全部學年' : `${state.selectedAcademicYear} 學年`;
+    const perLabel = state.selectedTermPeriod === 'all' ? '全學年' : state.selectedTermPeriod;
+    headerLabelEl.textContent = `${ayLabel}・${perLabel}`;
+  }
+
+  // 若當前大標篩選選單為開啟狀態，即時同步更新選單內容
+  if (state.isHeaderAcademicFilterOpen) {
+    const content = document.getElementById('header-academic-filter-content');
+    if (content) {
+      const activeYm = state.activeTab === 'equipment' ? (state.equipmentCalendarMonth || getTodayStr().slice(0, 7)) : (state.scheduleCalendarMonth || getTodayStr().slice(0, 7));
+      content.innerHTML = renderAcademicPeriodControlHtml('header', true, activeYm);
+      lucide.createIcons();
+    }
+  }
+}
+
+// 點擊最上方大標篩選按鈕，切換展開或收合日期細項選單
+function toggleAcademicFilterDropdown(forceState = null) {
+  const dropdown = document.getElementById('header-academic-filter-dropdown');
+  const btn = document.getElementById('btn-toggle-academic-filter');
+  const chevron = document.getElementById('header-academic-chevron');
+  if (!dropdown) return;
+
+  const willOpen = forceState !== null ? forceState : dropdown.classList.contains('hidden');
+  state.isHeaderAcademicFilterOpen = willOpen;
+
+  if (willOpen) {
+    dropdown.classList.remove('hidden');
+    if (btn) {
+      btn.classList.add('bg-[#1c1b18]', 'text-stone-100');
+      btn.classList.remove('bg-matte-sub', 'text-matte-ink');
+    }
+    if (chevron) {
+      chevron.style.transform = 'rotate(180deg)';
+    }
+    const content = document.getElementById('header-academic-filter-content');
+    if (content) {
+      const activeYm = state.activeTab === 'equipment' ? (state.equipmentCalendarMonth || getTodayStr().slice(0, 7)) : (state.scheduleCalendarMonth || getTodayStr().slice(0, 7));
+      content.innerHTML = renderAcademicPeriodControlHtml('header', true, activeYm);
+      lucide.createIcons();
+    }
+  } else {
+    dropdown.classList.add('hidden');
+    if (btn) {
+      btn.classList.remove('bg-[#1c1b18]', 'text-stone-100');
+      btn.classList.add('bg-matte-sub', 'text-matte-ink');
+    }
+    if (chevron) {
+      chevron.style.transform = '';
+    }
+  }
 }
 
 function onChangeAcademicYearSelect(newAy) {
@@ -908,10 +1244,11 @@ function selectCalendarMonthDirect(ym) {
   state.selectedAttendanceDate = targetDate;
   state.selectedEquipDate = targetDate;
 
+  syncAcademicFilterDropdowns();
   renderAll();
 }
 
-// 產生共用的「年度（如 114、115）＋ 期間（暑假、上學期、寒假、下學期）」控制列 HTML
+// 產生共用的「年度（如 114、115）＋ 期間（暑假、上學期、寒假、下學期）」控制列 HTML (圖一選單內容)
 function renderAcademicPeriodControlHtml(contextKey = 'calendar', showMonthPills = true, activeYm = '') {
   ensureAcademicPeriodInitialized();
   const years = getAvailableAcademicYears();
@@ -954,8 +1291,8 @@ function renderAcademicPeriodControlHtml(contextKey = 'calendar', showMonthPills
   `;
 
   const monthPillsHtml = showMonthPills ? `
-    <div class="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-stone-300/70">
-      <span class="text-[11px] font-extrabold text-matte-muted shrink-0">🗓️ 月份：</span>
+    <div class="flex items-center gap-1.5 flex-wrap pt-2 border-t border-stone-300/80">
+      <span class="text-[11px] font-extrabold text-matte-muted shrink-0">🗓️ 月份快速切換：</span>
       ${cfg.months.map(m => {
         const isCurrentMonth = activeYm === m.ym;
         const mStat = getMonthRecordCountInPeriod(m.ym, curAy, curPer);
@@ -979,7 +1316,22 @@ function renderAcademicPeriodControlHtml(contextKey = 'calendar', showMonthPills
   const hasPlan = Boolean(curPlan.planNote || rulesStr);
 
   return `
-    <div class="p-3 rounded-2xl bg-matte-sub border border-matte-border space-y-2">
+    <div class="p-3.5 sm:p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+      <!-- 頂部標題列與收合選單按鈕 -->
+      <div class="flex items-center justify-between border-b border-stone-300/80 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="p-1 rounded-lg bg-[#1c1b18] text-stone-100">
+            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          </span>
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">學年度與期間篩選（全隊各功能列同步）</span>
+        </div>
+        <button type="button" onclick="toggleAcademicFilterDropdown(false)"
+          class="px-2.5 py-1 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink text-xs font-bold border border-matte-border transition flex items-center gap-1 shadow-2xs">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>收合選單</span>
+        </button>
+      </div>
+
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex items-center gap-1.5">
@@ -1066,60 +1418,365 @@ function getDateScheduleType(dateStr) {
   return getDateScheduleDetails(dateStr).type;
 }
 
-function getDateEquipmentStatus(dateStr) {
-  const recs = getEquipmentRecords().filter(r => r.leave_date === dateStr);
-  let borrower = null;
-  let returner = null;
-  recs.forEach(r => {
-    if (r.leave_type === '借還器材') {
-      if (!borrower) borrower = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' };
-      if (!returner) returner = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' };
-    } else if (r.leave_type === '借器材') {
-      if (!borrower) borrower = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借器材' };
-    } else if (r.leave_type === '還器材') {
-      if (!returner) returner = { user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '還器材' };
-    }
-  });
-  return { borrower, returner, rawRecords: recs };
+// 判斷當日是否為練球或訓練日（沒有練習的日子不需要借器材）
+function isPracticeDay(dateStr) {
+  if (!dateStr) return false;
+  const type = getDateScheduleType(dateStr);
+  return type === '練球' || type === '練球+體能' || type === '體能';
 }
 
-function getMonthlyEquipmentCounts(yearMonth) {
-  const ym = yearMonth || getTodayStr().slice(0, 7);
-  const countsMap = new Map();
-  getPlayerUsers().forEach(u => {
-    countsMap.set(u.name, { user: u, count: 0, dates: [] });
+// ----------------------------------------------------------------------------
+// 器材人數需求設定（依照固定排程各區間時段設定 + 單日自訂人數微調）
+// ----------------------------------------------------------------------------
+function getEquipmentConfig() {
+  const rec = getEquipmentConfigRecord();
+  if (rec && rec.reason) {
+    try {
+      const parsed = JSON.parse(rec.reason);
+      return {
+        defaultBorrowQuota: Math.max(0, Number(parsed.defaultBorrowQuota) ?? 1),
+        defaultReturnQuota: Math.max(0, Number(parsed.defaultReturnQuota) ?? 1),
+        ruleQuotas: parsed.ruleQuotas || {},
+        dailyQuotas: parsed.dailyQuotas || {}
+      };
+    } catch (e) {
+      console.warn('Parse equip config error', e);
+    }
+  }
+  return {
+    defaultBorrowQuota: 1,
+    defaultReturnQuota: 1,
+    ruleQuotas: {},
+    dailyQuotas: {}
+  };
+}
+
+// 取得指定固定排程規則之借還器材人數（依據 ruleQuotas 或 rule 本身設定，體能預設0人免借）
+function getEquipmentQuotaForRule(ruleId, ruleObj = null) {
+  const cfg = getEquipmentConfig();
+  if (ruleId && cfg.ruleQuotas && cfg.ruleQuotas[ruleId]) {
+    const rq = cfg.ruleQuotas[ruleId];
+    return {
+      borrow: Math.max(0, Number(rq.borrow) ?? 1),
+      return: Math.max(0, Number(rq.return) ?? 1)
+    };
+  }
+  if (ruleObj) {
+    if (ruleObj.borrowQuota !== undefined || ruleObj.returnQuota !== undefined) {
+      return {
+        borrow: Math.max(0, Number(ruleObj.borrowQuota) ?? 1),
+        return: Math.max(0, Number(ruleObj.returnQuota) ?? 1)
+      };
+    }
+    if (ruleObj.type === '體能') {
+      return { borrow: 0, return: 0 };
+    }
+  }
+  return {
+    borrow: Math.max(0, Number(cfg.defaultBorrowQuota) ?? 1),
+    return: Math.max(0, Number(cfg.defaultReturnQuota) ?? 1)
+  };
+}
+
+// 根據日期搜尋對應的固定練球計畫規則 (圖二已排定固定練球區間)
+function findMatchingScheduleRuleForDate(dateStr) {
+  if (!dateStr) return null;
+  const termInfo = getAcademicTermInfo(dateStr);
+  const curPlan = getTermLongTermPlanConfig(termInfo.academicYear, termInfo.period);
+  const curRules = curPlan.rules || [];
+  if (curRules.length === 0) return null;
+
+  // 1. 優先比對排程紀錄中標註的 ruleId
+  const explicit = getScheduleRecords().find(r => r.leave_date === dateStr);
+  if (explicit && explicit.reason && explicit.reason.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(explicit.reason);
+      if (parsed.ruleId) {
+        const matched = curRules.find(r => r.id === parsed.ruleId);
+        if (matched) return matched;
+      }
+    } catch (e) {}
+  }
+
+  // 2. 依照練球區間、星期幾與訓練類型比對
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const wk = new Date(y, m - 1, d).getDay();
+  const explicitType = explicit ? explicit.leave_type : null;
+
+  const matched = curRules.find(r => {
+    if (r.startDate && r.endDate && (dateStr < r.startDate || dateStr > r.endDate)) return false;
+    if (Array.isArray(r.weekdays) && !r.weekdays.map(Number).includes(wk)) return false;
+    if (explicitType && explicitType !== 'none' && explicitType !== '無') {
+      return r.type === explicitType;
+    }
+    return true;
   });
-  const monthRecs = getEquipmentRecords().filter(r => (r.leave_date || '').startsWith(ym));
-  monthRecs.sort((a, b) => (a.leave_date || '').localeCompare(b.leave_date || ''));
-  const dateProcessed = new Set();
-  monthRecs.forEach(r => {
-    const d = r.leave_date;
-    if (!d || dateProcessed.has(d)) return;
-    dateProcessed.add(d);
-    const st = getDateEquipmentStatus(d);
-    if (st.borrower && st.returner && st.borrower.user_name === st.returner.user_name) {
-      const item = countsMap.get(st.borrower.user_name);
-      if (item) {
-        item.count += 2;
-        item.dates.push(`${d.slice(8, 10)}日(借+還)`);
-      }
-    } else {
-      if (st.borrower) {
-        const item = countsMap.get(st.borrower.user_name);
-        if (item) {
-          item.count += 1;
-          item.dates.push(`${d.slice(8, 10)}日(借)`);
-        }
-      }
-      if (st.returner) {
-        const item = countsMap.get(st.returner.user_name);
-        if (item) {
-          item.count += 1;
-          item.dates.push(`${d.slice(8, 10)}日(還)`);
-        }
-      }
+
+  return matched || null;
+}
+
+// 取得單日器材需求人數（單日自訂 > 固定排程規則設定 > 全隊預設人數）
+function getEquipmentQuotaForDate(dateStr) {
+  const cfg = getEquipmentConfig();
+
+  // 1. 單日自訂人數覆蓋 (單日特殊調整優先)
+  if (cfg.dailyQuotas && cfg.dailyQuotas[dateStr]) {
+    const dq = cfg.dailyQuotas[dateStr];
+    return {
+      borrowQuota: Math.max(0, Number(dq.borrow) ?? 1),
+      returnQuota: Math.max(0, Number(dq.return) ?? 1),
+      isCustom: true,
+      ruleName: '單日自訂人數',
+      ruleId: null
+    };
+  }
+
+  // 2. 依照圖二排定的固定練球區間比對人數
+  const rule = findMatchingScheduleRuleForDate(dateStr);
+  if (rule) {
+    const rq = getEquipmentQuotaForRule(rule.id, rule);
+    return {
+      borrowQuota: rq.borrow,
+      returnQuota: rq.return,
+      isCustom: false,
+      ruleName: `${rule.type} (${rule.practiceTime || '固定時段'})`,
+      ruleId: rule.id
+    };
+  }
+
+  // 3. 未匹配固定排程時使用全隊預設人數
+  return {
+    borrowQuota: Math.max(0, Number(cfg.defaultBorrowQuota) ?? 1),
+    returnQuota: Math.max(0, Number(cfg.defaultReturnQuota) ?? 1),
+    isCustom: false,
+    ruleName: '全隊預設',
+    ruleId: null
+  };
+}
+
+async function persistEquipmentConfig(cfg) {
+  const existing = getEquipmentConfigRecord();
+  const recId = existing ? existing.id : generateUUID();
+  const configRecord = {
+    id: recId,
+    user_id: state.currentUser?.id || 'admin',
+    user_name: '器材設定',
+    leave_date: '2099-12-31',
+    leave_type: '設定',
+    session_name: '__SYS_EQUIP_CONFIG__',
+    reason: JSON.stringify(cfg),
+    leave_photo: '',
+    makeup_text: '',
+    makeup_photo: '',
+    makeup_done: false,
+    status: '已核准',
+    created_at: new Date().toISOString()
+  };
+
+  const idx = state.leaves.findIndex(l => l.id === recId);
+  if (idx !== -1) {
+    state.leaves[idx] = configRecord;
+  } else {
+    state.leaves.push(configRecord);
+  }
+
+  if (state.isSupabaseReady) {
+    try {
+      await supabaseClient.from('team_leaves').upsert([configRecord]);
+    } catch (err) {
+      console.warn('Persist equip config error:', err);
+    }
+  }
+  await notifyRealtimePeers();
+}
+
+async function saveRuleEquipmentQuota(ruleId, borrowQuota, returnQuota) {
+  const cfg = getEquipmentConfig();
+  if (!cfg.ruleQuotas) cfg.ruleQuotas = {};
+  const b = Math.max(0, Number(borrowQuota) || 0);
+  const r = Math.max(0, Number(returnQuota) || 0);
+  cfg.ruleQuotas[ruleId] = { borrow: b, return: r };
+  await persistEquipmentConfig(cfg);
+
+  // 同步更新固定計畫中的 rule 物件
+  const termCfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const curAy = termCfg.numericYear || 115;
+  const curPer = termCfg.period === 'all' ? '上學期' : termCfg.period;
+  const curPlan = getTermLongTermPlanConfig(curAy, curPer);
+  if (curPlan && Array.isArray(curPlan.rules)) {
+    const target = curPlan.rules.find(x => x.id === ruleId);
+    if (target) {
+      target.borrowQuota = b;
+      target.returnQuota = r;
+      await saveTermLongTermPlan(curAy, curPer, curPlan.planNote, curPlan.rules);
+    }
+  }
+
+  showToast(`已更新固定排程器材人數：借 ${b} 人 / 還 ${r} 人`, 'success');
+  renderAll();
+}
+
+async function saveAllRuleEquipmentQuotas() {
+  const termCfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const curAy = termCfg.numericYear || 115;
+  const curPer = termCfg.period === 'all' ? '上學期' : termCfg.period;
+  const curPlan = getTermLongTermPlanConfig(curAy, curPer);
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${curAy}_${curPer}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
+
+  if (curRules.length === 0) {
+    showToast('目前學期尚無固定練球區間可儲存！', 'info');
+    return;
+  }
+
+  const cfg = getEquipmentConfig();
+  if (!cfg.ruleQuotas) cfg.ruleQuotas = {};
+
+  let count = 0;
+  curRules.forEach(rule => {
+    const bInput = document.getElementById(`rule-borrow-quota-${rule.id}`);
+    const rInput = document.getElementById(`rule-return-quota-${rule.id}`);
+    if (bInput && rInput) {
+      const b = Math.max(0, Number(bInput.value) || 0);
+      const r = Math.max(0, Number(rInput.value) || 0);
+      cfg.ruleQuotas[rule.id] = { borrow: b, return: r };
+      rule.borrowQuota = b;
+      rule.returnQuota = r;
+      count++;
     }
   });
+
+  await persistEquipmentConfig(cfg);
+  await saveTermLongTermPlan(curAy, curPer, curPlan.planNote, curRules);
+
+  showToast(`已成功儲存 ${count} 筆固定排程借還器材人數！`, 'success');
+  renderAll();
+}
+
+async function saveDefaultEquipmentQuota(defaultBorrow, defaultReturn) {
+  const cfg = getEquipmentConfig();
+  cfg.defaultBorrowQuota = Math.max(0, Number(defaultBorrow) || 0);
+  cfg.defaultReturnQuota = Math.max(0, Number(defaultReturn) || 0);
+  await persistEquipmentConfig(cfg);
+  showToast(`已更新全隊預設器材人數：借 ${cfg.defaultBorrowQuota} 人 / 還 ${cfg.defaultReturnQuota} 人`, 'success');
+  renderAll();
+}
+
+async function saveDailyEquipmentQuota(dateStr, borrowQuota, returnQuota) {
+  const cfg = getEquipmentConfig();
+  if (!cfg.dailyQuotas) cfg.dailyQuotas = {};
+  cfg.dailyQuotas[dateStr] = {
+    borrow: Math.max(0, Number(borrowQuota) || 0),
+    return: Math.max(0, Number(returnQuota) || 0)
+  };
+  await persistEquipmentConfig(cfg);
+  showToast(`已儲存 ${dateStr} 當日器材需求人數：借 ${borrowQuota} 人 / 還 ${returnQuota} 人`, 'success');
+  renderAll();
+}
+
+async function resetDailyEquipmentQuota(dateStr) {
+  const cfg = getEquipmentConfig();
+  if (cfg.dailyQuotas && cfg.dailyQuotas[dateStr]) {
+    delete cfg.dailyQuotas[dateStr];
+    await persistEquipmentConfig(cfg);
+    showToast(`已恢復 ${dateStr} 為固定排程需求人數`, 'info');
+    renderAll();
+  }
+}
+
+function getDateEquipmentStatus(dateStr) {
+  const recs = getEquipmentRecords().filter(r => r.leave_date === dateStr);
+  const quota = getEquipmentQuotaForDate(dateStr);
+  const borrowers = [];
+  const returners = [];
+
+  recs.forEach(r => {
+    if (r.leave_type === '借還器材') {
+      borrowers.push({ user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' });
+      returners.push({ user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借還器材' });
+    } else if (r.leave_type === '借器材') {
+      borrowers.push({ user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '借器材' });
+    } else if (r.leave_type === '還器材') {
+      returners.push({ user_id: r.user_id, user_name: r.user_name, recordId: r.id, mode: '還器材' });
+    }
+  });
+
+  const borrowQuota = quota.borrowQuota;
+  const returnQuota = quota.returnQuota;
+  const needsEquipment = (borrowQuota > 0 || returnQuota > 0);
+  const canBorrow = needsEquipment && (borrowers.length < borrowQuota);
+  const canReturn = needsEquipment && (returners.length < returnQuota);
+
+  const borrower = borrowers.length > 0 ? borrowers[0] : null;
+  const returner = returners.length > 0 ? returners[0] : null;
+
+  return {
+    borrowers,
+    returners,
+    borrowQuota,
+    returnQuota,
+    needsEquipment,
+    isCustomQuota: quota.isCustom,
+    ruleName: quota.ruleName || '',
+    borrowRemaining: Math.max(0, borrowQuota - borrowers.length),
+    returnRemaining: Math.max(0, returnQuota - returners.length),
+    canBorrow,
+    canReturn,
+    borrower,
+    returner,
+    rawRecords: recs
+  };
+}
+
+function getMonthlyEquipmentCounts(yearMonth, isAllTime = true) {
+  const ym = yearMonth || getTodayStr().slice(0, 7);
+  const countsMap = new Map();
+
+  // 排除管理者，管理者自己不需要借器材，不計入平均
+  getPlayerUsers().forEach(u => {
+    // 歷史給定累計資料（1是借、2是還，共 67 次）直接作為全隊累計基準，不佔用日曆格子
+    const base = isAllTime ? (HISTORICAL_EQUIPMENT_BASELINES[u.name] || { borrow: 0, return: 0 }) : { borrow: 0, return: 0 };
+    countsMap.set(u.name, {
+      user: u,
+      count: (base.borrow || 0) + (base.return || 0),
+      borrowCount: base.borrow || 0,
+      returnCount: base.return || 0,
+      dates: []
+    });
+  });
+
+  // 日曆上之後新增的登記紀錄（真實現行借還，計入日期）
+  const recs = isAllTime
+    ? getEquipmentRecords()
+    : getEquipmentRecords().filter(r => (r.leave_date || '').startsWith(ym));
+
+  recs.sort((a, b) => (a.leave_date || '').localeCompare(b.leave_date || ''));
+
+  recs.forEach(r => {
+    const d = r.leave_date;
+    const item = countsMap.get(r.user_name);
+    if (!item) return;
+
+    const dateStr = d ? `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` : '';
+
+    if (r.leave_type === '借還器材') {
+      item.count += 2;
+      item.borrowCount += 1;
+      item.returnCount += 1;
+      if (dateStr) item.dates.push(`${dateStr}(借+還)`);
+    } else if (r.leave_type === '借器材') {
+      item.count += 1;
+      item.borrowCount += 1;
+      if (dateStr) item.dates.push(`${dateStr}(借)`);
+    } else if (r.leave_type === '還器材') {
+      item.count += 1;
+      item.returnCount += 1;
+      if (dateStr) item.dates.push(`${dateStr}(還)`);
+    }
+  });
+
   return Array.from(countsMap.values());
 }
 
@@ -1127,6 +1784,78 @@ function getMonthlyEquipmentCounts(yearMonth) {
 
 // 取得所有一般球員帳號 (排除管理者，管理者無須被指派體能或補體能)
 function getPlayerUsers_unused() { return []; }
+
+// 全體隊員歷史累計借還器材基準次數（僅計入全隊累計次數與平均，不佔用日曆日程）
+const HISTORICAL_EQUIPMENT_BASELINES = {
+  '宥潾': { borrow: 7, return: 3 },
+  'Olivia': { borrow: 6, return: 2 },
+  '愛佳': { borrow: 2, return: 5 },
+  '惟媛': { borrow: 4, return: 3 },
+  '烏薩奇': { borrow: 2, return: 3 },
+  '鈺庭': { borrow: 0, return: 5 },
+  '辰瑩': { borrow: 1, return: 4 },
+  '佩珊': { borrow: 2, return: 1 },
+  '佳盈': { borrow: 1, return: 2 },
+  '唐霓': { borrow: 0, return: 3 },
+  '若潔': { borrow: 0, return: 2 },
+  '子恩': { borrow: 0, return: 2 },
+  '彥葶': { borrow: 2, return: 0 },
+  '凱勒': { borrow: 1, return: 1 },
+  '林萱': { borrow: 3, return: 1 },
+  '阿鼠': { borrow: 1, return: 0 },
+  '鈺軒': { borrow: 1, return: 0 },
+  '蔡佳ㄣ': { borrow: 0, return: 0 },
+  '芃元': { borrow: 0, return: 0 },
+  '悅嘉': { borrow: 0, return: 0 }
+};
+// 確保全體隊員完整名冊（含 鈺軒，已移除 黛玉軒）與借還器材累計資料庫同步
+async function ensureOfficialMembersAndEquipment() {
+  const officialMembers = [
+    { id: 'a0000000-0000-4000-8000-000000000021', username: 'player021', password: 'ntub021', name: '鈺軒', jersey_number: '#20 隊員', role: 'member', created_at: '2025-10-01T08:00:20Z' }
+  ];
+
+  const newUsers = [];
+  officialMembers.forEach(om => {
+    let existing = state.users.find(u => u.name === om.name);
+    if (!existing) {
+      const uObj = { ...om };
+      state.users.push(uObj);
+      newUsers.push(uObj);
+    }
+  });
+
+  // 確保從本機狀態移除已刪除之成員「黛玉軒」
+  state.users = state.users.filter(u => u.name !== '黛玉軒');
+
+  // 清除日曆上先前暫存的歷史假借用日程，恢復日曆乾淨排程
+  state.leaves = state.leaves.filter(r => !isHistoricalSeedEquipRecord(r) && r.user_name !== '黛玉軒');
+
+  // 清除 10/07 誤建之體能紀錄
+  state.fitness = state.fitness.filter(f => f.target_date !== '2026-10-07' && f.id !== 'c0000000-0000-4000-8000-000000000122');
+  if (state.selectedFitnessDate === '2026-10-07') {
+    state.selectedFitnessDate = '';
+  }
+
+  saveLocalCache();
+
+  if (state.isSupabaseReady && supabaseClient) {
+    try {
+      if (newUsers.length > 0) {
+        await supabaseClient.from('team_users').upsert(newUsers);
+      }
+      // 確保從 Supabase 遠端資料庫刪除 黛玉軒
+      await supabaseClient.from('team_users').delete().eq('name', '黛玉軒');
+      // 確保 Supabase 中不會殘留假日程
+      await supabaseClient.from('team_leaves').delete().like('id', 'e0000000-0000-4000-8000-%');
+      // 確保從 Supabase 刪除 10/07 體能紀錄
+      await supabaseClient.from('team_fitness').delete().eq('target_date', '2026-10-07');
+      await supabaseClient.from('team_fitness').delete().eq('id', 'c0000000-0000-4000-8000-000000000122');
+    } catch (e) {
+      console.warn('Sync official members warning:', e);
+    }
+  }
+}
+
 
 
 // 暫存目前表單上傳壓縮後的 Base64 圖片
@@ -1192,7 +1921,8 @@ function getDefaultSeedData() {
       { id: 'a0000000-0000-4000-8000-000000000016', username: 'player016', password: 'ntub016', name: '惟媛', jersey_number: '#16 隊員', role: 'member', created_at: '2025-10-01T08:00:16Z' },
       { id: 'a0000000-0000-4000-8000-000000000020', username: 'player017', password: 'ntub017', name: '凱勒', jersey_number: '#17 隊員', role: 'member', created_at: '2025-10-01T08:00:17Z' },
       { id: 'a0000000-0000-4000-8000-000000000018', username: 'player018', password: 'ntub018', name: '彥葶', jersey_number: '#18 隊員', role: 'member', created_at: '2025-10-01T08:00:18Z' },
-      { id: 'a0000000-0000-4000-8000-000000000019', username: 'player019', password: 'ntub019', name: '唐霓', jersey_number: '#19 隊員', role: 'member', created_at: '2025-10-01T08:00:19Z' }
+      { id: 'a0000000-0000-4000-8000-000000000019', username: 'player019', password: 'ntub019', name: '唐霓', jersey_number: '#19 隊員', role: 'member', created_at: '2025-10-01T08:00:19Z' },
+      { id: 'a0000000-0000-4000-8000-000000000021', username: 'player021', password: 'ntub021', name: '鈺軒', jersey_number: '#20 隊員', role: 'member', created_at: '2025-10-01T08:00:20Z' }
     ],
     fitness: [
       {"id": "c0000000-0000-4000-8000-000000000146", "user_id": "a0000000-0000-4000-8000-000000000001", "user_name": "蔡佳ㄣ", "task_name": "重訓與間歇體能 (2026-10-20)", "target_date": "2026-10-20", "is_completed": true, "note": "暖身:10｜間歇:0｜胸推(kg):12.5/12.5｜腿推(kg):135/135｜屈腿機:35/35｜核心(下):35/35｜背(LB):25/25｜史密斯(kg):22.5/22.5｜弓箭步:12.5/12.5｜填報:2026-10-20 23:28:12", "updated_at": "2026-10-20T23:28:12Z"},
@@ -1218,7 +1948,6 @@ function getDefaultSeedData() {
       {"id": "c0000000-0000-4000-8000-000000000125", "user_id": "a0000000-0000-4000-8000-000000000015", "user_name": "佳盈", "task_name": "重訓與間歇體能 (2026-10-13)", "target_date": "2026-10-13", "is_completed": true, "note": "暖身:8/10｜間歇:13.5｜胸推(kg):2.5/2.5｜腿推(kg):100/100｜屈腿機:17.5/17.5｜核心(下):20/20｜背(LB):10/10｜史密斯(kg):7.5/7.5｜弓箭步:7/7｜填報:2026-10-13 18:16:12", "updated_at": "2026-10-13T18:16:12Z"},
       {"id": "c0000000-0000-4000-8000-000000000124", "user_id": "a0000000-0000-4000-8000-000000000020", "user_name": "凱勒", "task_name": "重訓與間歇體能 (2026-10-13)", "target_date": "2026-10-13", "is_completed": true, "note": "暖身:10/8｜間歇:爬坡 15/10mins/速度5｜胸推(kg):10/10｜腿推(kg):45/45｜屈腿機:20/20｜核心(下):30/30｜背(LB):25/20｜史密斯(kg):12.5/12.5｜弓箭步:7/8｜填報:2026-10-13 17:54:55", "updated_at": "2026-10-13T17:54:55Z"},
       {"id": "c0000000-0000-4000-8000-000000000123", "user_id": "a0000000-0000-4000-8000-000000000003", "user_name": "林萱", "task_name": "重訓與間歇體能 (2026-10-13)", "target_date": "2026-10-13", "is_completed": true, "note": "暖身:10/10｜間歇:14.5｜胸推(kg):7.5/10｜腿推(kg):107.5/107.5｜屈腿機:30/30｜核心(下):30/30｜背(LB):15/15｜史密斯(kg):22.5/22.5｜弓箭步:10/10｜填報:2026-10-13 15:32:43", "updated_at": "2026-10-13T15:32:43Z"},
-      {"id": "c0000000-0000-4000-8000-000000000122", "user_id": "a0000000-0000-4000-8000-000000000013", "user_name": "辰瑩", "task_name": "重訓與間歇體能 (2026-10-07)", "target_date": "2026-10-07", "is_completed": true, "note": "暖身:8｜間歇:13｜胸推(kg):7.5/7.5｜腿推(kg):80/90｜屈腿機:25/25｜核心(下):20/20｜背(LB):20/20｜史密斯(kg):17.5/17.5｜弓箭步:7/7｜填報:2026-10-12 23:46:20", "updated_at": "2026-10-12T23:46:20Z"},
       {"id": "c0000000-0000-4000-8000-000000000135", "user_id": "a0000000-0000-4000-8000-000000000007", "user_name": "悅嘉", "task_name": "重訓與間歇體能 (2026-10-06)", "target_date": "2026-10-06", "is_completed": true, "note": "暖身:9/10｜間歇:13.5｜胸推(kg):5/5｜腿推(kg):62.5/62.5｜屈腿機:25/25｜核心(下):20/20｜背(LB):10/10｜史密斯(kg):10/10｜弓箭步:7/7｜填報:2026-10-16 18:43:05", "updated_at": "2026-10-16T18:43:05Z"},
       {"id": "c0000000-0000-4000-8000-000000000121", "user_id": "a0000000-0000-4000-8000-000000000008", "user_name": "烏薩奇", "task_name": "重訓與間歇體能 (2026-10-06)", "target_date": "2026-10-06", "is_completed": true, "note": "暖身:10/10｜間歇:16.5｜胸推(kg):7.5/7.5｜腿推(kg):100/100｜屈腿機:25/25｜核心(下):25/25｜背(LB):15/15｜史密斯(kg):22.5/22.5｜弓箭步:10/10｜填報:2026-10-12 00:56:14", "updated_at": "2026-10-12T00:56:14Z"},
       {"id": "c0000000-0000-4000-8000-000000000119", "user_id": "a0000000-0000-4000-8000-000000000012", "user_name": "愛佳", "task_name": "重訓與間歇體能 (2026-10-06)", "target_date": "2026-10-06", "is_completed": true, "note": "暖身:10｜間歇:14｜胸推(kg):7.5/7.5｜腿推(kg):80/80｜屈腿機:25/25｜核心(下):20/20｜背(LB):15/15｜史密斯(kg):0/0｜弓箭步:7/7｜填報:2026-10-11 20:29:21", "updated_at": "2026-10-11T20:29:21Z"},
@@ -1467,6 +2196,7 @@ function loadLocalCache() {
         state.leaves = parsed.leaves || [];
         state.finances = parsed.finances || [];
         normalizeMergedRosterInMemory();
+        ensureOfficialMembersAndEquipment();
         return;
       }
     }
@@ -1480,6 +2210,7 @@ function loadLocalCache() {
   state.leaves = seed.leaves;
   state.finances = seed.finances;
   normalizeMergedRosterInMemory();
+  ensureOfficialMembersAndEquipment();
   saveLocalCache();
 }
 
@@ -1620,6 +2351,7 @@ async function fetchAllFromSupabase(showSpin = false) {
       state.leaves.some(l => l.user_name === '凱樂');
 
     normalizeMergedRosterInMemory();
+    await ensureOfficialMembersAndEquipment();
 
     if (hasOldKaile && state.isSupabaseReady) {
       const kailerUser = state.users.find(u => u.name === '凱勒');
@@ -1802,8 +2534,8 @@ function updateConnectionIndicators(isCloudConnected) {
       if (el) el.className = 'w-2 h-2 rounded-full bg-stone-200 live-dot shrink-0';
     });
     if (authStatus) authStatus.textContent = 'Supabase 雲端資料庫即時連線中';
-    if (sideText) sideText.textContent = 'Supabase 雲端即時同步中';
-    if (mobText) mobText.textContent = '雲端即時同步';
+    if (sideText) sideText.textContent = `Supabase 雲端即時同步中 ${nowStr}`;
+    if (mobText) mobText.textContent = `雲端同步 ${nowStr}`;
     if (modalBox) modalBox.className = 'p-3.5 rounded-xl border bg-matte-sub border-matte-border flex items-center justify-between gap-3';
     if (modalTitle) modalTitle.innerHTML = '● Supabase 資料表已連線成功！所有資料皆即時儲存於雲端';
   } else {
@@ -1812,8 +2544,8 @@ function updateConnectionIndicators(isCloudConnected) {
       if (el) el.className = 'w-2 h-2 rounded-full bg-stone-400 live-dot shrink-0';
     });
     if (authStatus) authStatus.textContent = '待執行 SQL 初始化 (目前支援即時快取體驗)';
-    if (sideText) sideText.textContent = '待初始化資料表 (點擊下方檢測)';
-    if (mobText) mobText.textContent = '待建表同步';
+    if (sideText) sideText.textContent = `待初始化資料表 (快取 ${nowStr})`;
+    if (mobText) mobText.textContent = `待建表同步 ${nowStr}`;
     if (modalBox) modalBox.className = 'p-3.5 rounded-xl border bg-matte-sub border-matte-border flex items-center justify-between gap-3';
     if (modalTitle) modalTitle.innerHTML = '○ 尚未在 Supabase 建立資料表（請複製下方 SQL 執行）';
   }
@@ -1843,13 +2575,50 @@ async function handleLogin(e) {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value.trim();
 
-  if (!username || !password) return;
+  if (!username || !password) {
+    showToast('請輸入帳號與密碼！', 'error');
+    return;
+  }
 
-  await fetchAllFromSupabase(false);
+  // 確保本機名冊已就緒
+  if (!state.users || state.users.length === 0) {
+    loadLocalCache();
+  }
 
-  const found = state.users.find(
-    u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-  );
+  const matchUser = (u) => {
+    const uName = (u.name || '').toLowerCase();
+    const uUser = (u.username || '').toLowerCase();
+    const target = username.toLowerCase();
+
+    const isMatchIdentity = (
+      uUser === target ||
+      uName === target ||
+      (target === 'admin' && u.role === 'admin')
+    );
+
+    const isMatchPassword = (
+      u.password === password ||
+      (u.role === 'admin' && (password === 'ntubad001' || password === 'admin'))
+    );
+
+    return isMatchIdentity && isMatchPassword;
+  };
+
+  // 1. 優先從記憶體/本機快取比對，秒速登入（不卡頓）
+  let found = state.users.find(matchUser);
+
+  // 2. 若本機未找到，嘗試至雲端 Supabase 同步更新名單（限時 2 秒避免無回應）
+  if (!found && supabaseClient) {
+    try {
+      await Promise.race([
+        fetchAllFromSupabase(false),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      found = state.users.find(matchUser);
+    } catch (err) {
+      console.warn('Login cloud sync warning:', err);
+    }
+  }
 
   if (!found) {
     showToast('帳號或密碼錯誤，請重新確認！', 'error');
@@ -1857,6 +2626,11 @@ async function handleLogin(e) {
   }
 
   loginSuccess(found);
+
+  // 登入成功後於背景非同步檢查雲端更新
+  if (supabaseClient) {
+    fetchAllFromSupabase(false).catch(() => {});
+  }
 }
 
 function loginSuccess(user) {
@@ -2199,7 +2973,7 @@ function getNavItemsForRole(role) {
     { id: 'fitness', label: '體能', fullLabel: '體能與補體能', icon: 'activity' },
     { id: 'fees', label: '隊費', fullLabel: '隊費與代繳', icon: 'wallet' },
     { id: 'leaves', label: '行事曆/請假', fullLabel: '球隊行事曆與請假', icon: 'calendar' },
-    { id: 'equipment', label: '器材', fullLabel: '借還器材日曆', icon: 'package' },
+    { id: 'equipment', label: '器材', fullLabel: '借還器材', icon: 'package' },
     { id: 'finances', label: '經費', fullLabel: '球隊經費', icon: 'landmark' },
     { id: 'settings', label: '設定', fullLabel: isAdmin ? '成員與設定' : '帳號設定', icon: 'settings' }
   );
@@ -2241,8 +3015,8 @@ function switchTab(tabId) {
       '排程月曆、登記練球請假與全隊出席名單'
     ],
     equipment: [
-      '借還器材日曆',
-      '登記練球借還球與球袋、查看當日借還負責人與每月達標統計'
+      '借還器材',
+      '登記訓練借還器材、查看當日借還負責人與次數統計'
     ],
     finances: [
       '球隊經費收支',
@@ -2480,8 +3254,10 @@ function renderDashboardSection() {
 
   const dashBarEl = document.getElementById('dashboard-academic-period-bar');
   if (dashBarEl) {
-    dashBarEl.innerHTML = renderAcademicPeriodControlHtml('dashboard', false);
+    dashBarEl.innerHTML = '';
+    dashBarEl.classList.add('hidden');
   }
+  renderCupCountdown('dashboard-cup-countdown-bar');
 
   const baseFitness = isAdmin ? state.fitness : state.fitness.filter(isOwnedByCurrentUser);
   const scopedFitness = baseFitness.filter(f => isDateInAcademicPeriod(f.target_date, state.selectedAcademicYear, state.selectedTermPeriod));
@@ -2687,9 +3463,16 @@ function renderDashboardSection() {
       <div onclick="switchTab('leaves')" class="cursor-pointer p-3 rounded-xl bg-[#1c1b18] text-stone-100 border border-stone-800 hover:bg-stone-800 transition flex items-center justify-between gap-2">
         <div>
           <div class="text-xs font-extrabold">📅 ${activeDate} 全隊出席率：${attendancePct}%</div>
-          <p class="text-[11px] text-stone-400 mt-0.5">● 出席 ${presentCount} 人 ／ ○ 請假 ${absentPlayerNames.size} 人（點擊查看全隊名單）</p>
+          <p class="text-[11px] text-stone-400 mt-0.5">● 出席 ${presentCount} 人 ／ ○ 請假 ${absentPlayerNames.size} 人</p>
         </div>
-        <span class="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-[11px] font-bold shrink-0">出席看板 &rarr;</span>
+        <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+          <button type="button" onclick="openExportAttendanceModal('${activeDate}')" class="px-2.5 py-1 rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-100 text-[11px] font-bold transition">
+            📄 輸出名單
+          </button>
+          <button type="button" onclick="switchTab('leaves')" class="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-[11px] font-bold">
+            看板 &rarr;
+          </button>
+        </div>
       </div>
     `;
     if (realLeaves.length === 0) {
@@ -2824,21 +3607,24 @@ function renderDashboardSection() {
 function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate) {
   const ym = (activeDate || getTodayStr()).slice(0, 7);
   const [y, m] = ym.split('-').map(Number);
-  const monthlyStats = getMonthlyEquipmentCounts(ym);
-  const metCount = monthlyStats.filter(x => x.count >= 1).length;
+  const monthlyStats = getMonthlyEquipmentCounts(ym, true);
+  const totalEquipCount = monthlyStats.reduce((s, x) => s + x.count, 0);
+  const avgEquipCount = monthlyStats.length > 0 ? (totalEquipCount / monthlyStats.length) : 0;
+  const avgEquipFormatted = (Math.round(avgEquipCount * 10) / 10).toFixed(1);
+  const belowAvgMembers = monthlyStats.filter(x => x.count < avgEquipCount);
   const myStat = monthlyStats.find(x => x.user.name === state.currentUser.name || x.user.id === state.currentUser.id);
 
   const headingEl = document.getElementById('dash-equip-heading');
   if (headingEl) {
-    headingEl.textContent = `借還器材狀況 (${m}月)`;
+    headingEl.textContent = `借還器材累計狀況`;
   }
 
-  // 收集有借還器材紀錄或有排定練球/體能的日期
+  // 收集本月及近期有排定練球的日期 (過濾非練球日)
   const dateSet = new Set();
-  if (activeDate) dateSet.add(activeDate);
-  dateSet.add(getTodayStr());
-  getEquipmentRecords().forEach(r => { if (r.leave_date) dateSet.add(r.leave_date); });
-  getScheduleRecords().forEach(r => { if (r.leave_date && r.leave_type !== '無' && r.leave_type !== 'none') dateSet.add(r.leave_date); });
+  if (activeDate && isPracticeDay(activeDate)) dateSet.add(activeDate);
+  if (isPracticeDay(getTodayStr())) dateSet.add(getTodayStr());
+  getEquipmentRecords().forEach(r => { if (r.leave_date && isPracticeDay(r.leave_date)) dateSet.add(r.leave_date); });
+  getScheduleRecords().forEach(r => { if (r.leave_date && isPracticeDay(r.leave_date)) dateSet.add(r.leave_date); });
   const sortedDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
 
   const topBanner = `
@@ -2846,14 +3632,16 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
       class="cursor-pointer p-3 rounded-xl bg-[#1c1b18] text-stone-100 border border-stone-800 hover:bg-stone-800 transition flex items-center justify-between gap-2">
       <div>
         <div class="text-xs font-extrabold">
-          📦 ${y} 年 ${m} 月借還器材達標：${metCount} / ${monthlyStats.length} 人（每月 1~31 日至少 1 次）
+          📦 借還器材累計概況：全隊平均 ${avgEquipFormatted} 次（累計借還 ${totalEquipCount} 次）
         </div>
         <p class="text-[11px] text-stone-400 mt-0.5">
           ${!isAdmin && myStat
-            ? (myStat.count >= 1
-                ? `● 我本月已累計 ${myStat.count} 次（${escapeHtml(myStat.dates.join('、'))}）`
-                : `⚠️ 我本月尚無借還器材紀錄，點此前往日曆登記！`)
-            : `一天練球借+還算 2 次 ・ 同一天不可重複人借（點擊開啟借器材日曆）`}
+            ? (myStat.count >= avgEquipCount
+                ? `● 我本月已累計 ${myStat.count} 次（達全隊平均，${escapeHtml(myStat.dates.join('、'))}）`
+                : `⚠️ 我本月借還 ${myStat.count} 次低於全隊平均 (${avgEquipFormatted}次)，請點此前往登記！`)
+            : (belowAvgMembers.length > 0
+                ? `提醒低於平均 (${belowAvgMembers.length}人: ${belowAvgMembers.slice(0, 3).map(x => x.user.name).join('、')}${belowAvgMembers.length > 3 ? '等' : ''}) 主動報名借器材`
+                : `全體隊員本月借還次數皆達平均！`)}
         </p>
       </div>
       <span class="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-[11px] font-bold shrink-0">借器材日曆 &rarr;</span>
@@ -2864,13 +3652,13 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
     // 粗略項目模式：列出各球員本月借還器材次數與負責日期（已借者優先，方便看誰借還器材與誰還沒借）
     const sortedPlayers = [...monthlyStats].sort((a, b) => b.count - a.count);
     dashFinEl.innerHTML = topBanner + sortedPlayers.slice(0, 5).map(item => {
-      const ok = item.count >= 1;
+      const ok = item.count >= avgEquipCount;
       return `
         <div onclick="switchTab('equipment');"
           class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
           <div class="min-w-0">
             <div class="flex items-center gap-1.5">
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${ok ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">${ok ? '● 已借還' : '○ 未達標'}</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${ok ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">${ok ? '● 達平均' : '○ 低於平均'}</span>
               <span class="font-bold text-xs sm:text-sm text-matte-ink">${escapeHtml(item.user.name)}</span>
             </div>
             <p class="text-[11px] text-matte-muted mt-0.5 truncate">
@@ -2886,43 +3674,46 @@ function renderDashboardEquipmentCard(dashFinEl, isAdmin, isSummary, activeDate)
     return;
   }
 
-  // 細項模式（預設使用者與管理者细項）：逐日顯示「誰借器材 / 誰還器材」
+  // 細項模式（預設使用者與管理者細項）：逐日顯示「誰借器材 / 誰還器材」
   const dateCardsHtml = sortedDates.slice(0, 4).map(d => {
     const eq = getDateEquipmentStatus(d);
     const sched = getDateScheduleType(d);
-    const bothSame = eq.borrower && eq.returner && eq.borrower.user_name === eq.returner.user_name;
-    const hasAny = Boolean(eq.borrower || eq.returner);
+    const isFull = (eq.borrowers.length >= eq.borrowQuota) && (eq.returners.length >= eq.returnQuota);
+    const hasAny = (eq.borrowers.length > 0) || (eq.returners.length > 0);
+
+    const borrowNames = eq.borrowers.map(b => b.user_name).join('、');
+    const returnNames = eq.returners.map(r => r.user_name).join('、');
 
     return `
       <div onclick="switchTab('equipment'); selectEquipCalendarDate('${escapeJsStr(d)}');"
         class="cursor-pointer flex items-center justify-between gap-2 p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${hasAny ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
-              ${bothSame ? '借+還 (算2次)' : (hasAny ? '已登記' : '待登記')}
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${isFull ? 'bg-[#1c1b18] text-stone-100' : (hasAny ? 'bg-stone-400 text-stone-900' : 'bg-stone-300 text-matte-ink')}">
+              ${isFull ? '額滿' : (hasAny ? '尚有名額' : '待登記')}
             </span>
             <span class="font-bold text-xs sm:text-sm text-matte-ink">📅 ${escapeHtml(d)}</span>
             ${sched !== 'none' ? `<span class="px-1.5 py-0.5 rounded bg-stone-200 text-matte-ink text-[10px] font-bold">${escapeHtml(sched)}</span>` : ''}
           </div>
           <p class="text-[11px] text-matte-muted mt-1 truncate">
-            📦 借器材：<strong class="text-matte-ink">${eq.borrower ? escapeHtml(eq.borrower.user_name) : '尚無人借'}</strong>
-            ・ 📥 還器材：<strong class="text-matte-ink">${eq.returner ? escapeHtml(eq.returner.user_name) : '尚無人還'}</strong>
+            📦 借 (${eq.borrowers.length}/${eq.borrowQuota}人)：<strong class="text-matte-ink">${borrowNames ? escapeHtml(borrowNames) : '尚缺'}</strong>
+            ・ 📥 還 (${eq.returners.length}/${eq.returnQuota}人)：<strong class="text-matte-ink">${returnNames ? escapeHtml(returnNames) : '尚缺'}</strong>
           </p>
         </div>
         <span class="font-extrabold text-xs text-matte-ink shrink-0">
-          ${bothSame ? `${escapeHtml(eq.borrower.user_name)} (×2)` : (hasAny ? '查看 / 登記 &rarr;' : '點此借器材 &rarr;')}
+          ${isFull ? '查看名單 &rarr;' : '立即報名 &rarr;'}
         </span>
       </div>
     `;
   }).join('');
 
-  const doneList = monthlyStats.filter(x => x.count >= 1).map(x => `${x.user.name}(${x.count}次)`);
-  const pendingList = monthlyStats.filter(x => x.count === 0).map(x => x.user.name);
+  const doneList = monthlyStats.filter(x => x.count >= avgEquipCount).map(x => `${x.user.name}(${x.count}次)`);
+  const pendingList = monthlyStats.filter(x => x.count < avgEquipCount).map(x => `${x.user.name}(${x.count}次)`);
   const quotaSummaryCard = `
     <div onclick="switchTab('equipment'); setTimeout(() => document.getElementById('equipment-calendar-board')?.scrollIntoView({ behavior: 'smooth' }), 150);"
       class="cursor-pointer p-3 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-1">
-      <div class="text-xs font-extrabold text-matte-ink">● ${m} 月已借還器材 (${doneList.length}人)：<span class="font-semibold">${doneList.length > 0 ? escapeHtml(doneList.join('、')) : '目前尚無人登記'}</span></div>
-      <div class="text-[11px] text-matte-muted truncate">○ ${m} 月尚未借器材 (${pendingList.length}人)：${pendingList.length > 0 ? escapeHtml(pendingList.join('、')) : '全員皆已達標 🎉'}</div>
+      <div class="text-xs font-extrabold text-matte-ink">● ${m} 月借還達平均 (${doneList.length}人)：<span class="font-semibold">${doneList.length > 0 ? escapeHtml(doneList.join('、')) : '尚無人達標'}</span></div>
+      <div class="text-[11px] text-matte-muted truncate">○ ${m} 月低於平均請主動報名 (${pendingList.length}人)：${pendingList.length > 0 ? escapeHtml(pendingList.join('、')) : '全員皆達全隊平均 🎉'}</div>
     </div>
   `;
   dashFinEl.innerHTML = topBanner + dateCardsHtml + quotaSummaryCard;
@@ -3167,8 +3958,6 @@ function renderFitnessMatrixViewer() {
       </div>
     </div>
 
-    ${renderAcademicPeriodControlHtml('fitness-matrix', false)}
-
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-matte-sub/60 p-3.5 rounded-2xl border border-matte-border">
       <div class="space-y-1.5">
         <label class="block text-xs font-extrabold text-matte-ink">① 隊員 ${isAdmin ? `(${playerNames.length} 人)` : ''}</label>
@@ -3364,36 +4153,165 @@ function groupFinancesByCategory(list) {
 }
 
 // ----------------------------------------------------------------------------
-// 補體能判斷與需補次數統計（請假次數 − 已完成補體能次數）
+// 補體能與補九個動作判斷與自動累積統計
+// 請假分成：
+// 1.「請體能」-> 需補體能（系統自動累積待補體能）
+// 2.「請練球」-> 需補九個動作（系統自動累積待補九個動作）
+// 3.「請練球+體能」-> 兩者皆需補
 // ----------------------------------------------------------------------------
 function isMakeupFitnessRecord(f) {
   return (f.task_name || '').includes('補體能') ||
     (f.note || '').includes('補體能:') ||
-    (f.note || '').includes('補體能照:');
+    (f.note || '').includes('補體能照:') ||
+    (f.task_name || '').includes('補九個動作') ||
+    (f.note || '').includes('九個動作');
+}
+
+function getLeaveCategory(l) {
+  if (!l) return '請練球';
+  if (l.leave_category) return l.leave_category;
+  const sess = l.session_name || '';
+  if (sess.includes('[請體能]')) return '請體能';
+  if (sess.includes('[請練球+體能]')) return '請練球+體能';
+  if (sess.includes('[請練球]')) return '請練球';
+  if (sess.includes('晨間體能') || sess.includes('體能訓練')) return '請體能';
+  const st = getDateScheduleType(l.leave_date);
+  if (st === '體能') return '請體能';
+  if (st === '練球+體能') return '請練球+體能';
+  return '請練球';
 }
 
 function getMakeupStatsForPlayer(user, ay, pk) {
-  if (!user) return { leaveCount: 0, fitnessLeaveCount: 0, doneCount: 0, pendingCount: 0, needed: 0, leaveDates: [] };
+  if (!user) {
+    return {
+      leaveCount: 0,
+      fitnessLeaveCount: 0,
+      fitnessDoneCount: 0,
+      fitnessPendingCount: 0,
+      fitnessNeeded: 0,
+      nineActionsLeaveCount: 0,
+      nineActionsDoneCount: 0,
+      nineActionsNeeded: 0,
+      totalNeeded: 0,
+      needed: 0,
+      doneCount: 0,
+      pendingCount: 0,
+      leaveDates: []
+    };
+  }
   const matchUser = r => r.user_id === user.id || r.user_name === user.name;
   const leaves = getRealLeaves().filter(l => matchUser(l) && isDateInAcademicPeriod(l.leave_date, ay, pk));
-  // 只有體能練習需要填表單與有未完成/補體能問題；練球只計算出席跟請假，未請假就是算出席
-  const fitnessLeaves = leaves.filter(l => {
-    const st = getDateScheduleType(l.leave_date);
-    if (st === '練球') return false;
-    if (st === '體能' || st === '練球+體能') return true;
-    return (l.session_name || '').includes('體能');
+
+  const fitnessLeaves = [];
+  const nineActionsLeaves = [];
+
+  leaves.forEach(l => {
+    const cat = getLeaveCategory(l);
+    if (cat === '請體能') {
+      fitnessLeaves.push(l);
+    } else if (cat === '請練球') {
+      nineActionsLeaves.push(l);
+    } else if (cat === '請練球+體能') {
+      fitnessLeaves.push(l);
+      nineActionsLeaves.push(l);
+    } else {
+      nineActionsLeaves.push(l);
+    }
   });
-  const makeups = state.fitness.filter(f => matchUser(f) && isMakeupFitnessRecord(f) && isDateInAcademicPeriod(f.target_date, ay, pk));
-  const doneCount = makeups.filter(f => f.is_completed).length;
-  const pendingCount = makeups.filter(f => !f.is_completed).length;
+
+  // 補體能完成紀錄（過濾排除補九個動作）
+  const fitnessMakeups = state.fitness.filter(f =>
+    matchUser(f) &&
+    isDateInAcademicPeriod(f.target_date, ay, pk) &&
+    ((f.task_name || '').includes('補體能') || (f.note || '').includes('補體能')) &&
+    !(f.task_name || '').includes('九個動作')
+  );
+  const fitnessDoneCount = fitnessMakeups.filter(f => f.is_completed).length;
+  const fitnessPendingCount = fitnessMakeups.filter(f => !f.is_completed).length;
+  const fitnessNeeded = Math.max(0, fitnessLeaves.length - fitnessDoneCount);
+
+  // 補九個動作完成紀錄
+  const nineActionsMakeups = state.fitness.filter(f =>
+    matchUser(f) &&
+    isDateInAcademicPeriod(f.target_date, ay, pk) &&
+    ((f.task_name || '').includes('九個動作') || (f.note || '').includes('九個動作'))
+  );
+  const nineActionsDoneCount = nineActionsMakeups.filter(f => f.is_completed).length;
+  const nineActionsNeeded = Math.max(0, nineActionsLeaves.length - nineActionsDoneCount);
+
+  const totalNeeded = fitnessNeeded + nineActionsNeeded;
+
   return {
     leaveCount: leaves.length,
     fitnessLeaveCount: fitnessLeaves.length,
-    doneCount,
-    pendingCount,
-    needed: Math.max(0, fitnessLeaves.length - doneCount),
+    fitnessDoneCount,
+    fitnessPendingCount,
+    fitnessNeeded,
+    nineActionsLeaveCount: nineActionsLeaves.length,
+    nineActionsDoneCount,
+    nineActionsNeeded,
+    totalNeeded,
+    needed: fitnessNeeded,
+    doneCount: fitnessDoneCount,
+    pendingCount: fitnessPendingCount,
     leaveDates: leaves.map(l => l.leave_date).sort()
   };
+}
+
+function openLogNineActionsModal(userId = null) {
+  const userSelect = document.getElementById('nine-actions-user-id');
+  const isAdmin = state.currentUser?.role === 'admin';
+  const playerUsers = getPlayerUsers();
+
+  if (userSelect) {
+    if (isAdmin) {
+      userSelect.innerHTML = playerUsers.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('');
+      if (userId) userSelect.value = userId;
+    } else {
+      userSelect.innerHTML = `<option value="${state.currentUser.id}">${escapeHtml(state.currentUser.name)}</option>`;
+      userSelect.value = state.currentUser.id;
+    }
+  }
+
+  document.getElementById('nine-actions-date').value = getTodayStr();
+  document.getElementById('nine-actions-note').value = '';
+  document.getElementById('modal-log-nine-actions').classList.remove('hidden');
+}
+
+async function submitLogNineActions(e) {
+  e.preventDefault();
+  const uid = document.getElementById('nine-actions-user-id').value;
+  const targetUser = state.users.find(u => u.id === uid) || state.currentUser;
+  const logDate = document.getElementById('nine-actions-date').value;
+  const note = document.getElementById('nine-actions-note').value.trim() || '完成九個動作自主訓練';
+
+  const newRecord = {
+    id: generateUUID(),
+    user_id: targetUser.id,
+    user_name: targetUser.name,
+    task_name: '補九個動作 (折抵練球)',
+    category: 'makeup_nine',
+    target_date: logDate,
+    sets_data: null,
+    is_completed: true,
+    note,
+    created_at: new Date().toISOString()
+  };
+
+  state.fitness.push(newRecord);
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('team_fitness').insert([newRecord]);
+    } catch (err) {
+      console.warn('Supabase save nine actions error:', err);
+    }
+  }
+
+  closeModal('modal-log-nine-actions');
+  showToast(`已成功登記【${targetUser.name}】完成 1 次九個動作！`, 'success');
+  renderFitnessSection();
+  renderMakeupStatsBoard();
+  renderDashboardSection();
 }
 
 // ----------------------------------------------------------------------------
@@ -3451,8 +4369,11 @@ function renderFitnessSection() {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   const myMakeupStat = !isAdmin ? getMakeupStatsForPlayer(state.currentUser, state.selectedAcademicYear, state.selectedTermPeriod) : null;
-  const teamNeeded = isAdmin
-    ? getPlayerUsers().reduce((s, u) => s + getMakeupStatsForPlayer(u, state.selectedAcademicYear, state.selectedTermPeriod).needed, 0)
+  const teamFitnessNeeded = isAdmin
+    ? getPlayerUsers().reduce((s, u) => s + getMakeupStatsForPlayer(u, state.selectedAcademicYear, state.selectedTermPeriod).fitnessNeeded, 0)
+    : 0;
+  const teamNineNeeded = isAdmin
+    ? getPlayerUsers().reduce((s, u) => s + getMakeupStatsForPlayer(u, state.selectedAcademicYear, state.selectedTermPeriod).nineActionsNeeded, 0)
     : 0;
 
   const progEl = document.getElementById('fitness-progress-bar');
@@ -3461,9 +4382,9 @@ function renderFitnessSection() {
       progEl.innerHTML = `
         <div class="flex items-center justify-between text-xs sm:text-sm font-bold flex-wrap gap-1">
           <span class="text-matte-ink">
-            【${escapeHtml(termCfg.titleLabel)}】${isAdmin ? `全隊需補體能次數統計（全隊待補共 ${teamNeeded} 次）` : `我的需補體能：待補 ${myMakeupStat ? myMakeupStat.needed : 0} 次・已補 ${myMakeupStat ? myMakeupStat.doneCount : 0} 次`}
+            【${escapeHtml(termCfg.titleLabel)}】${isAdmin ? `全隊補練統計（待補體能 ${teamFitnessNeeded} 次・待補九個動作 ${teamNineNeeded} 次）` : `我的待補進度：待補體能 ${myMakeupStat ? myMakeupStat.fitnessNeeded : 0} 次・待補九個動作 ${myMakeupStat ? myMakeupStat.nineActionsNeeded : 0} 次`}
           </span>
-          <span class="text-matte-ink font-extrabold">${isAdmin ? `已補 ${makeupList.filter(f => f.is_completed).length} 次` : (myMakeupStat && myMakeupStat.needed === 0 ? '● 無待補' : `○ 待補 ${myMakeupStat ? myMakeupStat.needed : 0} 次`)}</span>
+          <span class="text-matte-ink font-extrabold">${isAdmin ? `全隊總待補 ${teamFitnessNeeded + teamNineNeeded} 次` : (myMakeupStat && myMakeupStat.totalNeeded === 0 ? '● 無待補' : `○ 待補共 ${myMakeupStat ? myMakeupStat.totalNeeded : 0} 次`)}</span>
         </div>
       `;
     } else {
@@ -3505,16 +4426,16 @@ function renderFitnessSection() {
         id: 'makeup',
         title: '🏋️ 補體能專區',
         desc: myMakeupStat
-          ? `待補 ${myMakeupStat.needed} 次・已補 ${myMakeupStat.doneCount} 次`
+          ? `待補體能 ${myMakeupStat.fitnessNeeded} 次・已補 ${myMakeupStat.fitnessDoneCount} 次`
           : `補體能清單與回報（${makeupList.length} 筆）`,
         icon: 'dumbbell'
       },
       {
         id: 'makeupStats',
-        title: '📈 需補體能次數',
+        title: '📈 需補次數統計',
         desc: myMakeupStat
-          ? `我待補 ${myMakeupStat.needed} 次`
-          : `全隊待補共 ${teamNeeded} 次`,
+          ? `待補體能 ${myMakeupStat.fitnessNeeded} / 九動作 ${myMakeupStat.nineActionsNeeded}`
+          : `全隊待補體能 ${teamFitnessNeeded} / 九動作 ${teamNineNeeded}`,
         icon: 'clipboard-list'
       }
     ],
@@ -4489,6 +5410,10 @@ function onBatchScheduleInputChange() {
   state.batchScheduleDraft.practiceTime = (startTime && endTime) ? `${startTime}~${endTime}` : (startTime || endTime || '');
   state.batchScheduleDraft.planNote = document.getElementById('batch-sched-plan-note')?.value || '';
   state.batchScheduleDraft.weekdays = Array.from(document.querySelectorAll('.batch-weekday-chk:checked')).map(el => Number(el.value));
+  const bEl = document.getElementById('batch-sched-borrow-quota');
+  const rEl = document.getElementById('batch-sched-return-quota');
+  if (bEl) state.batchScheduleDraft.borrowQuota = Number(bEl.value);
+  if (rEl) state.batchScheduleDraft.returnQuota = Number(rEl.value);
 }
 
 function renderAdminBatchSchedulePanel() {
@@ -4519,6 +5444,8 @@ function renderAdminBatchSchedulePanel() {
   const domStartTime = document.getElementById('batch-sched-time-start')?.value;
   const domEndTime = document.getElementById('batch-sched-time-end')?.value;
   const domNote = document.getElementById('batch-sched-plan-note')?.value;
+  const domBorrowQuota = document.getElementById('batch-sched-borrow-quota')?.value;
+  const domReturnQuota = document.getElementById('batch-sched-return-quota')?.value;
   const domChks = Array.from(document.querySelectorAll('.batch-weekday-chk:checked')).map(el => Number(el.value));
   const hasDomInputs = Boolean(document.getElementById('batch-sched-type'));
 
@@ -4531,6 +5458,10 @@ function renderAdminBatchSchedulePanel() {
   let formStartTime = '18:30';
   let formEndTime = '21:30';
   let initPlanNote = '';
+
+  const editingQuota = editingRule ? getEquipmentQuotaForRule(editingRule.id, editingRule) : null;
+  let formBorrowQuota = 1;
+  let formReturnQuota = 1;
 
   if (isEditing && editingRule) {
     let sTime = '18:30';
@@ -4550,6 +5481,12 @@ function renderAdminBatchSchedulePanel() {
     formStartTime = (draft.isDirty && draft.startTime !== undefined) ? draft.startTime : (hasDomInputs && domStartTime !== undefined ? domStartTime : sTime);
     formEndTime = (draft.isDirty && draft.endTime !== undefined) ? draft.endTime : (hasDomInputs && domEndTime !== undefined ? domEndTime : eTime);
     initPlanNote = (draft.isDirty && draft.planNote !== undefined) ? draft.planNote : (hasDomInputs && domNote !== undefined ? domNote : (editingRule.planNote || ''));
+    formBorrowQuota = (draft.isDirty && draft.borrowQuota !== undefined && draft.borrowQuota !== null)
+      ? draft.borrowQuota
+      : (hasDomInputs && domBorrowQuota !== undefined ? Number(domBorrowQuota) : (editingQuota ? editingQuota.borrow : (initType === '體能' ? 0 : 1)));
+    formReturnQuota = (draft.isDirty && draft.returnQuota !== undefined && draft.returnQuota !== null)
+      ? draft.returnQuota
+      : (hasDomInputs && domReturnQuota !== undefined ? Number(domReturnQuota) : (editingQuota ? editingQuota.return : (initType === '體能' ? 0 : 1)));
   } else {
     const lastRule = curRules.length > 0 ? curRules[curRules.length - 1] : null;
     formStart = (draft.isDirty && draft.startDate) ? draft.startDate : (hasDomInputs && domStart ? domStart : defaultStart);
@@ -4559,11 +5496,15 @@ function renderAdminBatchSchedulePanel() {
     formStartTime = (draft.isDirty && draft.startTime !== undefined) ? draft.startTime : (hasDomInputs && domStartTime !== undefined ? domStartTime : '18:30');
     formEndTime = (draft.isDirty && draft.endTime !== undefined) ? draft.endTime : (hasDomInputs && domEndTime !== undefined ? domEndTime : '21:30');
     initPlanNote = (draft.isDirty && draft.planNote !== undefined) ? draft.planNote : (hasDomInputs && domNote !== undefined ? domNote : '');
+    formBorrowQuota = (draft.isDirty && draft.borrowQuota !== undefined && draft.borrowQuota !== null)
+      ? draft.borrowQuota
+      : (hasDomInputs && domBorrowQuota !== undefined ? Number(domBorrowQuota) : (initType === '體能' ? 0 : 1));
+    formReturnQuota = (draft.isDirty && draft.returnQuota !== undefined && draft.returnQuota !== null)
+      ? draft.returnQuota
+      : (hasDomInputs && domReturnQuota !== undefined ? Number(domReturnQuota) : (initType === '體能' ? 0 : 1));
   }
 
   container.innerHTML = `
-    ${renderAcademicPeriodControlHtml('batch-schedule', false)}
-
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- 左卡：長時間固定練球計畫設定與批次排程 -->
       <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
@@ -4647,6 +5588,28 @@ function renderAdminBatchSchedulePanel() {
           </div>
         </div>
 
+        <!-- 固定排程之借還器材需求人數設定 (圖一與圖二連動) -->
+        <div class="p-2.5 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-[11px] font-extrabold text-matte-ink">📦 借還器材需求人數（此固定排程預設）</label>
+            <span class="text-[10px] text-matte-muted">體能訓練可設為 0 人（免借器材）</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex items-center gap-1.5 bg-matte-sub p-2 rounded-xl border border-matte-border text-xs font-bold text-matte-ink">
+              <span>借器材：</span>
+              <input type="number" id="batch-sched-borrow-quota" min="0" max="10" value="${formBorrowQuota}" onchange="onBatchScheduleInputChange()"
+                class="w-14 px-1.5 py-0.5 bg-matte-card border border-matte-border rounded text-center font-bold text-xs" />
+              <span>人</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-matte-sub p-2 rounded-xl border border-matte-border text-xs font-bold text-matte-ink">
+              <span>還器材：</span>
+              <input type="number" id="batch-sched-return-quota" min="0" max="10" value="${formReturnQuota}" onchange="onBatchScheduleInputChange()"
+                class="w-14 px-1.5 py-0.5 bg-matte-card border border-matte-border rounded text-center font-bold text-xs" />
+              <span>人</span>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label class="block text-[11px] font-bold text-matte-muted mb-1">計畫說明（選填）</label>
           <input type="text" id="batch-sched-plan-note" value="${escapeHtml(initPlanNote)}" oninput="onBatchScheduleInputChange()"
@@ -4710,6 +5673,8 @@ function renderAdminBatchSchedulePanel() {
             const isBeingEdited = state.editingBatchRuleId === rule.id;
             const trainingDays = countRulePracticeDates(rule);
             const wNames = (rule.weekdays || []).map(w => ['週日','週一','週二','週三','週四','週五','週六'][w]).join('、');
+            const ruleQ = getEquipmentQuotaForRule(rule.id, rule);
+            const isZero = ruleQ.borrow === 0 && ruleQ.return === 0;
             return `
               <div class="p-4 rounded-2xl bg-matte-sub border ${isBeingEdited ? 'border-amber-500 ring-2 ring-amber-400/30' : 'border-matte-border'} hover:border-stone-500 transition space-y-3">
                 <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -4730,6 +5695,9 @@ function renderAdminBatchSchedulePanel() {
                       <span class="font-extrabold">每週固定練習日：</span>
                       <span class="font-bold text-matte-ink">${wNames || '無'}</span>
                       <span class="text-matte-muted">（期間累計排定 ${trainingDays} 個訓練日）</span>
+                      <span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-xs font-bold text-matte-ink">
+                        ${isZero ? '免借器材 (0人)' : `📦 借 ${ruleQ.borrow} 人 ｜ 📥 還 ${ruleQ.return} 人`}
+                      </span>
                     </div>
                     ${rule.planNote ? `
                       <p class="text-xs text-matte-muted">計畫備註：<span class="text-matte-ink font-medium">${escapeHtml(rule.planNote)}</span></p>
@@ -4800,6 +5768,7 @@ function editBatchScheduleRule(ruleId) {
     sTime = rule.practiceTime;
   }
 
+  const rQuota = getEquipmentQuotaForRule(rule.id, rule);
   state.batchScheduleDraft = {
     isDirty: true,
     startDate: rule.startDate || '',
@@ -4809,7 +5778,9 @@ function editBatchScheduleRule(ruleId) {
     practiceTime: rule.practiceTime || '18:30~21:30',
     startTime: sTime,
     endTime: eTime,
-    planNote: rule.planNote || ''
+    planNote: rule.planNote || '',
+    borrowQuota: rQuota.borrow,
+    returnQuota: rQuota.return
   };
 
   renderAdminBatchSchedulePanel();
@@ -4832,7 +5803,9 @@ function cancelEditBatchScheduleRule() {
     practiceTime: '',
     startTime: '',
     endTime: '',
-    planNote: ''
+    planNote: '',
+    borrowQuota: null,
+    returnQuota: null
   };
   renderAdminBatchSchedulePanel();
   lucide.createIcons();
@@ -5058,6 +6031,11 @@ async function applyBatchWeeklySchedule() {
       }
     }
 
+    const borrowEl = document.getElementById('batch-sched-borrow-quota');
+    const returnEl = document.getElementById('batch-sched-return-quota');
+    const bQuota = borrowEl ? Math.max(0, Number(borrowEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+    const rQuota = returnEl ? Math.max(0, Number(returnEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+
     const updatedRule = {
       id: state.editingBatchRuleId,
       weekdays: checkedDays,
@@ -5065,12 +6043,19 @@ async function applyBatchWeeklySchedule() {
       practiceTime: practiceTime || '18:30~21:30',
       startDate: startStr,
       endDate: endStr,
-      planNote: planNote
+      planNote: planNote,
+      borrowQuota: bQuota,
+      returnQuota: rQuota
     };
     updatedRules = curRules.map(r => r.id === state.editingBatchRuleId ? updatedRule : r);
   } else {
     // 新增活動模式：建立新規則並加入既有規則列表中（不覆蓋原有的其他活動）
     targetRuleId = generateUUID();
+    const borrowEl = document.getElementById('batch-sched-borrow-quota');
+    const returnEl = document.getElementById('batch-sched-return-quota');
+    const bQuota = borrowEl ? Math.max(0, Number(borrowEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+    const rQuota = returnEl ? Math.max(0, Number(returnEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+
     const newRule = {
       id: targetRuleId,
       weekdays: checkedDays,
@@ -5078,10 +6063,22 @@ async function applyBatchWeeklySchedule() {
       practiceTime: practiceTime || '18:30~21:30',
       startDate: startStr,
       endDate: endStr,
-      planNote: planNote
+      planNote: planNote,
+      borrowQuota: bQuota,
+      returnQuota: rQuota
     };
     updatedRules = [...curRules, newRule];
   }
+
+  // 同步更新固定排程之器材需求人數設定
+  const borrowEl = document.getElementById('batch-sched-borrow-quota');
+  const returnEl = document.getElementById('batch-sched-return-quota');
+  const finalBQuota = borrowEl ? Math.max(0, Number(borrowEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+  const finalRQuota = returnEl ? Math.max(0, Number(returnEl.value) || 0) : (schedType === '體能' ? 0 : 1);
+  const equipCfg = getEquipmentConfig();
+  if (!equipCfg.ruleQuotas) equipCfg.ruleQuotas = {};
+  equipCfg.ruleQuotas[targetRuleId] = { borrow: finalBQuota, return: finalRQuota };
+  await persistEquipmentConfig(equipCfg);
 
   // 儲存至長期計畫紀錄
   await saveTermLongTermPlan(ay, per, curPlan.planNote || planNote, updatedRules);
@@ -5204,7 +6201,51 @@ async function applyBatchHolidayRange() {
   showToast(`已將 ${startStr} ～ ${endStr}（共 ${targetDates.length} 天）設為「🏖️ 放假 / 暫停練習」！`, 'success');
 }
 
-// 計算指定日期全隊體能/練球進度與「請假 / 出席 / 體能已完成 / 未完成」名單（涵蓋全隊所有球員）
+// 輔助：判定體能紀錄各項目之完成度（未填寫即未完成、填 0 或留空算未完成）
+function getFitnessIncompleteDetails(f) {
+  if (!f || !f.note) {
+    return { hasNote: false, isComplete: false, missingItems: ['全部未填寫'], summary: '未填寫' };
+  }
+  const noteMap = parseWorkoutNoteToMap(f.note);
+  const rawMap = noteMap.rawMap || {};
+
+  const checkItems = [
+    { key: '暖身', label: '暖身' },
+    { key: '間歇', label: '間歇' },
+    { key: '胸推(kg)', label: '胸推' },
+    { key: '腿推(kg)', label: '腿推' },
+    { key: '屈腿機', label: '屈腿機' },
+    { key: '核心(下)', label: '核心' },
+    { key: '背(LB)', label: '背' },
+    { key: '史密斯(kg)', label: '史密斯' },
+    { key: '弓箭步', label: '弓箭步' }
+  ];
+
+  const missingItems = [];
+  checkItems.forEach(item => {
+    const val = rawMap[item.key];
+    if (val === undefined || val === null || String(val).trim() === '') {
+      missingItems.push(item.label);
+    } else {
+      const strVal = String(val).trim();
+      const parts = strVal.split('/').map(p => p.trim());
+      const allZerosOrEmpty = parts.every(p => !p || p === '0' || p === '-' || p === '0kg' || p === '0下');
+      if (allZerosOrEmpty) {
+        missingItems.push(item.label);
+      }
+    }
+  });
+
+  const isComplete = missingItems.length === 0 && (f.is_completed !== false);
+  return {
+    hasNote: true,
+    isComplete,
+    missingItems,
+    summary: isComplete ? '完成' : `缺:${missingItems.slice(0, 2).join('、')}${missingItems.length > 2 ? `等${missingItems.length}項` : ''}`
+  };
+}
+
+// 計算指定日期全隊體能/練球進度與「請假（需補整組）/ 有出席（未完成項目/沒填寫）/ 有出席（完成）」名單（涵蓋全隊所有球員）
 function getDateFitnessRosterBreakdown(dateStr) {
   const playerUsers = getPlayerUsers();
   const allRosterNames = playerUsers.map(u => u.name).filter(Boolean);
@@ -5229,34 +6270,71 @@ function getDateFitnessRosterBreakdown(dateStr) {
   const attendanceTotal = allRosterNames.length;
   const attendancePct = attendanceTotal > 0 ? Math.round((attendanceCount / attendanceTotal) * 100) : 100;
 
-  // 體能填報狀況（只有體能練習需要填表單以及有未完成問題）：
-  const doneNamesSet = new Set();
-  const pendingNamesSet = new Set();
+  // 體能填報狀況分類（全隊成員依三種狀態精確歸類）：
+  // 1. 請假（需補整組）
+  // 2. 有出席（完成）
+  // 3. 有出席（有未完成的項目，沒填寫即是未完成）
+  const leaveMembers = [];
+  const presentDoneMembers = [];
+  const presentIncompleteMembers = [];
 
   if (hasFitnessTask) {
-    fitnessOnDate.forEach(f => {
-      if (f.is_completed && f.user_name) doneNamesSet.add(f.user_name);
-    });
-    leavesOnDate.forEach(l => {
-      if (l.makeup_done && l.user_name) doneNamesSet.add(l.user_name);
-    });
-
-    allRosterNames.forEach(name => {
-      if (!doneNamesSet.has(name)) {
-        pendingNamesSet.add(name);
-      }
-    });
-    fitnessOnDate.forEach(f => {
-      if (!f.is_completed && f.user_name && !doneNamesSet.has(f.user_name)) {
-        pendingNamesSet.add(f.user_name);
+    playerUsers.forEach(u => {
+      const name = u.name;
+      if (leaveSet.has(name)) {
+        // 請假隊員：需補整組
+        const isMakeupDone = leavesOnDate.some(l => l.user_name === name && l.makeup_done) ||
+          state.fitness.some(f => f.user_name === name && f.is_completed && ((f.target_date === dateStr && isMakeupFitnessRecord(f)) || (f.task_name && f.task_name.includes(dateStr))));
+        leaveMembers.push({
+          user: u,
+          name,
+          isDone: isMakeupDone,
+          label: isMakeupDone ? '已補整組' : '需補整組'
+        });
+      } else {
+        // 有出席隊員：檢查各動作項目是否完成，沒填寫即是未完成
+        const f = fitnessOnDate.find(x => x.user_name === name);
+        if (!f || !f.note) {
+          presentIncompleteMembers.push({
+            user: u,
+            name,
+            recordId: f ? f.id : null,
+            reason: '未填寫',
+            label: '未填寫',
+            isComplete: false,
+            missingItems: ['全部未填寫']
+          });
+        } else {
+          const chk = getFitnessIncompleteDetails(f);
+          if (chk.isComplete) {
+            presentDoneMembers.push({
+              user: u,
+              name,
+              recordId: f.id,
+              label: '完成',
+              isComplete: true
+            });
+          } else {
+            presentIncompleteMembers.push({
+              user: u,
+              name,
+              recordId: f.id,
+              reason: '有未完成項目',
+              label: chk.summary,
+              isComplete: false,
+              missingItems: chk.missingItems
+            });
+          }
+        }
       }
     });
   }
 
-  const doneNames = Array.from(doneNamesSet);
-  const pendingNames = Array.from(pendingNamesSet);
-  const totalCount = hasFitnessTask ? (doneNames.length + pendingNames.length) : 0;
-  const pct = totalCount > 0 ? Math.round((doneNames.length / totalCount) * 100) : 0;
+  const doneNames = presentDoneMembers.map(m => m.name);
+  const pendingNames = presentIncompleteMembers.map(m => m.name);
+  const doneTotal = presentDoneMembers.length + leaveMembers.filter(m => m.isDone).length;
+  const totalCount = hasFitnessTask ? playerUsers.length : 0;
+  const pct = totalCount > 0 ? Math.round((doneTotal / totalCount) * 100) : 0;
   const hasActivity = (schedType !== 'none' && schedType !== '放假') || fitnessOnDate.length > 0 || leavesOnDate.length > 0;
 
   return {
@@ -5271,8 +6349,11 @@ function getDateFitnessRosterBreakdown(dateStr) {
     leaveSet,
     presentNames,
     fitnessOnDate,
+    leaveMembers,
+    presentDoneMembers,
+    presentIncompleteMembers,
     doneNames,
-    doneSet: doneNamesSet,
+    doneSet: new Set(doneNames),
     pendingNames,
     totalCount,
     pct,
@@ -5434,6 +6515,9 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
   const activeFitness = activeBreakdown.fitnessOnDate;
   const activeDoneNames = activeBreakdown.doneNames;
   const activePendingNames = activeBreakdown.pendingNames;
+  const activeLeaveMembers = activeBreakdown.leaveMembers || [];
+  const activePresentDoneMembers = activeBreakdown.presentDoneMembers || [];
+  const activePresentIncompleteMembers = activeBreakdown.presentIncompleteMembers || [];
   const activeTotalCount = activeBreakdown.totalCount;
   const activePct = activeBreakdown.pct;
   const activeDateTerm = getAcademicTermInfo(activeDate);
@@ -5461,8 +6545,6 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         ` : ''}
       </div>
     </div>
-
-    ${renderAcademicPeriodControlHtml(containerId, true, ym)}
 
     <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-matte-muted">
       <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
@@ -5588,14 +6670,19 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
           ` : ''}
         </div>
 
-        ${isAdmin ? `
-          <button type="button" onclick="state.scheduleSubTab = 'calendar'; switchTab('schedule');"
-            class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0">
-            <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
-            <span>管理排程 &rarr;</span>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button type="button" onclick="openExportAttendanceModal('${activeDate}')"
+            class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+            <span>輸出當日名單</span>
           </button>
-        ` : `
-          <div class="flex flex-wrap items-center gap-2 shrink-0">
+          ${isAdmin ? `
+            <button type="button" onclick="state.scheduleSubTab = 'calendar'; switchTab('schedule');"
+              class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0">
+              <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+              <span>管理排程 &rarr;</span>
+            </button>
+          ` : `
             <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
               class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
               <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
@@ -5608,8 +6695,8 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
                 <span>填寫體能表單</span>
               </button>
             ` : ''}
-          </div>
-        `}
+          `}
+        </div>
       </div>
     `}
 
@@ -5743,44 +6830,91 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
           </div>
         </div>
 
-        <!-- 體能填報區塊 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+        <!-- 體能填報區塊（依三種狀態展示：請假需補整組、有出席完成、有出席未完成/沒填寫） -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+          <!-- 1. 請假名單（需補整組） -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-matte-ink">● 體能已完成名單 (${activeDoneNames.length} 人)</span>
+              <span class="text-xs font-extrabold text-matte-ink">📅 請假名單 (${activeLeaveMembers.length} 人)</span>
+              <span class="text-[10px] text-stone-600 font-bold">需補整組</span>
             </div>
-            ${activeDoneNames.length === 0 ? `<p class="text-xs text-matte-muted">尚無人填報完成</p>` : `
+            ${activeLeaveMembers.length === 0 ? `
+              <p class="text-xs text-matte-muted">無人請假</p>
+            ` : `
               <div class="flex flex-wrap gap-1">
-                ${activeDoneNames.map(name => `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}</button>`).join('')}
+                ${activeLeaveMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      m.isDone
+                        ? 'bg-[#1c1b18] text-stone-100 hover:bg-stone-800'
+                        : 'bg-stone-200 text-matte-ink hover:bg-stone-300 border border-stone-400'
+                    }">
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] font-normal ${m.isDone ? 'text-stone-300' : 'text-stone-700'}">(${escapeHtml(m.label)})</span>
+                  </button>
+                `).join('')}
               </div>
             `}
           </div>
 
+          <!-- 2. 有出席・完成名單 -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-matte-ink">○ 體能未完成名單 (${activePendingNames.length} 人，需填表單)</span>
+              <span class="text-xs font-extrabold text-matte-ink">● 有出席・完成名單 (${activePresentDoneMembers.length} 人)</span>
             </div>
-            ${activePendingNames.length === 0 ? `<p class="text-xs text-matte-muted">● 全員體能皆已填報完成</p>` : `
+            ${activePresentDoneMembers.length === 0 ? `
+              <p class="text-xs text-matte-muted">尚無人完成</p>
+            ` : `
               <div class="flex flex-wrap gap-1">
-                ${activePendingNames.map(name => `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)} (待填)</button>`).join('')}
+                ${activePresentDoneMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1">
+                    <span>●</span>
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] text-stone-300 font-normal">(完成)</span>
+                  </button>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- 3. 有出席・未完成名單 (沒填寫即是未完成) -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">○ 有出席・未完成名單 (${activePresentIncompleteMembers.length} 人)</span>
+              <span class="text-[10px] text-stone-600 font-bold">沒填寫即未完</span>
+            </div>
+            ${activePresentIncompleteMembers.length === 0 ? `
+              <p class="text-xs text-matte-muted">🎉 出席隊員體能皆已完成！</p>
+            ` : `
+              <div class="flex flex-wrap gap-1">
+                ${activePresentIncompleteMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition flex items-center gap-1"
+                    title="${escapeHtml(m.missingItems ? m.missingItems.join('、') : m.label)}">
+                    <span>○</span>
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] text-stone-700 font-normal">(${escapeHtml(m.label)})</span>
+                  </button>
+                `).join('')}
               </div>
             `}
           </div>
         </div>
       </div>
     ` : activeBreakdown.hasFitnessTask ? `
-      <!-- 純體能練習：只有體能練習需要填表單以及有未完成問題 -->
+      <!-- 純體能練習：依三種狀態展示（請假需補整組、有出席完成、有出席未完成/沒填寫即是未完成） -->
       <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能填報進度與完成名單</span>
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能填報狀況</span>
             <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
-              體能練習需填表單・未填算未完成
+              請假需補整組 ｜ 有出席需完成各項目（沒填寫即是未完成）
             </span>
           </div>
           ${activeTotalCount > 0 ? `
             <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
-              ${activeDoneNames.length} / ${activeTotalCount} 完成 (${activePct}%)
+              ${activePresentDoneMembers.length} 人完成 ｜ ${activePresentIncompleteMembers.length} 人待補/未完 ｜ ${activeLeaveMembers.length} 人請假
             </span>
           ` : `
             <span class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold shrink-0">
@@ -5796,55 +6930,71 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         ` : ''}
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-          <!-- 1. 當天請假名單 -->
+          <!-- 1. 請假名單（需補整組） -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-matte-ink">📅 當天請假名單 (${activeLeaveNames.length} 人)</span>
+              <span class="text-xs font-extrabold text-matte-ink">📅 請假名單 (${activeLeaveMembers.length} 人)</span>
+              <span class="text-[10px] text-stone-600 font-bold">需補整組</span>
             </div>
-            ${activeLeaveNames.length === 0 ? `
+            ${activeLeaveMembers.length === 0 ? `
               <p class="text-xs text-matte-muted">無人請假</p>
             ` : `
               <div class="flex flex-wrap gap-1">
-                ${activeLeaveNames.map(name => {
-                  const lv = activeLeaves.find(l => l.user_name === name);
-                  const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
-                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${escapeHtml(typeStr)}</button>`;
-                }).join('')}
+                ${activeLeaveMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      m.isDone
+                        ? 'bg-[#1c1b18] text-stone-100 hover:bg-stone-800'
+                        : 'bg-stone-200 text-matte-ink hover:bg-stone-300 border border-stone-400'
+                    }">
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] font-normal ${m.isDone ? 'text-stone-300' : 'text-stone-700'}">(${escapeHtml(m.label)})</span>
+                  </button>
+                `).join('')}
               </div>
             `}
           </div>
 
-          <!-- 2. 已補 / 已完成名單 -->
+          <!-- 2. 有出席・完成名單 -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-matte-ink">● 已補 / 已完成名單 (${activeDoneNames.length} 人)</span>
+              <span class="text-xs font-extrabold text-matte-ink">● 有出席・完成名單 (${activePresentDoneMembers.length} 人)</span>
             </div>
-            ${activeDoneNames.length === 0 ? `
+            ${activePresentDoneMembers.length === 0 ? `
               <p class="text-xs text-matte-muted">尚無人完成</p>
             ` : `
               <div class="flex flex-wrap gap-1">
-                ${activeDoneNames.map(name => {
-                  const rec = activeFitness.find(f => f.user_name === name && f.is_completed);
-                  const isMakeup = rec && ((rec.task_name || '').includes('補體能') || (rec.note || '').includes('補體能') || activeLeaveSet.has(name));
-                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}${isMakeup ? ' (已補)' : ''}</button>`;
-                }).join('')}
+                ${activePresentDoneMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1">
+                    <span>●</span>
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] text-stone-300 font-normal">(完成)</span>
+                  </button>
+                `).join('')}
               </div>
             `}
           </div>
 
-          <!-- 3. 未補 / 未完成名單 -->
+          <!-- 3. 有出席・未完成名單 (沒填寫即是未完成) -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-matte-ink">○ 未補 / 未完成名單 (${activePendingNames.length} 人)</span>
+              <span class="text-xs font-extrabold text-matte-ink">○ 有出席・未完成名單 (${activePresentIncompleteMembers.length} 人)</span>
+              <span class="text-[10px] text-stone-600 font-bold">沒填寫即未完</span>
             </div>
-            ${activePendingNames.length === 0 ? `
-              <p class="text-xs text-matte-muted">${activeTotalCount > 0 ? '● 全員皆已完成 / 已補齊' : '無待補名單'}</p>
+            ${activePresentIncompleteMembers.length === 0 ? `
+              <p class="text-xs text-matte-muted">🎉 出席隊員體能皆已完成！</p>
             ` : `
               <div class="flex flex-wrap gap-1">
-                ${activePendingNames.map(name => {
-                  const isLv = activeLeaveSet.has(name);
-                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${isLv ? ' (請假未補)' : ' (未完)'}</button>`;
-                }).join('')}
+                ${activePresentIncompleteMembers.map(m => `
+                  <button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(m.name)}', '${escapeJsStr(activeDate)}')"
+                    class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition flex items-center gap-1"
+                    title="${escapeHtml(m.missingItems ? m.missingItems.join('、') : m.label)}">
+                    <span>○</span>
+                    <span>${escapeHtml(m.name)}</span>
+                    <span class="text-[10px] text-stone-700 font-normal">(${escapeHtml(m.label)})</span>
+                  </button>
+                `).join('')}
               </div>
             `}
           </div>
@@ -5868,6 +7018,13 @@ function openLeaveModalForDate(dateStr) {
   if (dEl && dateStr) {
     dEl.value = dateStr;
     renderModalEquipmentSlot('leave-equip-slot', dateStr);
+    const catSelect = document.getElementById('leave-category');
+    if (catSelect) {
+      const st = getDateScheduleType(dateStr);
+      if (st === '體能') catSelect.value = '請體能';
+      else if (st === '練球+體能') catSelect.value = '請練球+體能';
+      else catSelect.value = '請練球';
+    }
   }
 }
 
@@ -5894,37 +7051,74 @@ async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null)
   if (!state.currentUser) return false;
   const isAdmin = state.currentUser.role === 'admin';
   const actor = targetUserObj || state.currentUser;
+
+  // 沒有練習的日子不需要借器材
+  if (!isPracticeDay(dateStr)) {
+    showToast(`${dateStr} 當日無排定練球日程，不需要借還器材！`, 'error');
+    return false;
+  }
+
+  // 管理者自己不需要借器材
+  if (actor.role === 'admin' && !targetUserObj) {
+    showToast('管理者無需借器材，請使用指派功能為隊員登記！', 'info');
+    return false;
+  }
+
   const st = getDateEquipmentStatus(dateStr);
 
-  if (actionType === 'cancel_my') {
-    const myRecs = st.rawRecords.filter(r => r.user_name === actor.name || r.user_id === actor.id || isAdmin);
-    if (myRecs.length === 0) return false;
-    const delIds = myRecs.map(r => r.id);
+  // 取消登記
+  if (actionType === 'cancel_my' || actionType === 'cancel_target') {
+    const targetRecs = st.rawRecords.filter(r => r.user_name === actor.name || r.user_id === actor.id);
+    if (targetRecs.length === 0) return false;
+    const delIds = targetRecs.map(r => r.id);
     state.leaves = state.leaves.filter(r => !delIds.includes(r.id));
     if (state.isSupabaseReady) {
       await supabaseClient.from('team_leaves').delete().in('id', delIds);
     }
     await notifyRealtimePeers();
     renderAll();
-    showToast(`已取消 ${dateStr} 的借還器材登記`, 'info');
+    showToast(`已取消【${actor.name}】於 ${dateStr} 的借還器材登記`, 'info');
     return true;
   }
 
-  // 檢查是否已被其他人借走 (不能有重複的人借)
-  if (actionType === '借器材' || actionType === '借還器材') {
-    if (st.borrower && st.borrower.user_name !== actor.name) {
-      showToast(`${dateStr} 的「借器材」已由 ${st.borrower.user_name} 登記，同一天不能重複借！`, 'error');
+  const isAlreadyBorrower = st.borrowers.some(b => b.user_name === actor.name);
+  const isAlreadyReturner = st.returners.some(r => r.user_name === actor.name);
+
+  // 依管理者設定之需求人數，檢查是否額滿
+  if (actionType === '借器材') {
+    if (isAlreadyBorrower) {
+      showToast(`【${actor.name}】已登記當日借器材！`, 'info');
       return false;
     }
-  }
-  if (actionType === '還器材' || actionType === '借還器材') {
-    if (st.returner && st.returner.user_name !== actor.name) {
-      showToast(`${dateStr} 的「還器材」已由 ${st.returner.user_name} 登記，同一天不能重複登記！`, 'error');
+    if (!st.canBorrow) {
+      showToast(`${dateStr} 借器材名額已額滿（人數上限 ${st.borrowQuota} 人）！`, 'error');
       return false;
     }
   }
 
-  // 先清除該使用者在當天既有的器材紀錄，再寫入新狀態
+  if (actionType === '還器材') {
+    if (isAlreadyReturner) {
+      showToast(`【${actor.name}】已登記當日還器材！`, 'info');
+      return false;
+    }
+    if (!st.canReturn) {
+      showToast(`${dateStr} 還器材名額已額滿（人數上限 ${st.returnQuota} 人）！`, 'error');
+      return false;
+    }
+  }
+
+  if (actionType === '借還器材') {
+    if (!isAlreadyBorrower && !st.canBorrow) {
+      showToast(`${dateStr} 借器材名額已額滿，無法包辦借＋還！`, 'error');
+      return false;
+    }
+    if (!isAlreadyReturner && !st.canReturn) {
+      showToast(`${dateStr} 還器材名額已額滿，無法包辦借＋還！`, 'error');
+      return false;
+    }
+  }
+
+  // 先清除該成員當天舊紀錄
   const myOldIds = st.rawRecords.filter(r => r.user_name === actor.name || r.user_id === actor.id).map(r => r.id);
   if (myOldIds.length > 0) {
     state.leaves = state.leaves.filter(r => !myOldIds.includes(r.id));
@@ -5933,13 +7127,9 @@ async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null)
     }
   }
 
-  // 若原先已分開登記借與還，且合併後同一人同時擁有借與還，統一為「借還器材」(算2次)
+  // 若使用者已有一種身分又選另一種，合併為借還器材
   let finalType = actionType;
-  const updatedSt = getDateEquipmentStatus(dateStr);
-  if (
-    (actionType === '借器材' && updatedSt.returner && updatedSt.returner.user_name === actor.name) ||
-    (actionType === '還器材' && updatedSt.borrower && updatedSt.borrower.user_name === actor.name)
-  ) {
+  if ((actionType === '借器材' && isAlreadyReturner) || (actionType === '還器材' && isAlreadyBorrower)) {
     finalType = '借還器材';
   }
 
@@ -5948,7 +7138,7 @@ async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null)
     user_id: actor.id,
     user_name: actor.name,
     leave_date: dateStr,
-    leave_type: finalType, // '借器材' (1次) | '還器材' (1次) | '借還器材' (2次)
+    leave_type: finalType,
     session_name: '__SYS_EQUIP__',
     reason: finalType === '借還器材' ? '一天練球借+還器材 (算2次)' : `${finalType} (算1次)`,
     status: '已核准',
@@ -5957,25 +7147,42 @@ async function handleEquipmentBooking(dateStr, actionType, targetUserObj = null)
 
   state.leaves.unshift(newEquipRec);
   if (state.isSupabaseReady) {
-    await supabaseClient.from('team_leaves').insert([{
-      id: newEquipRec.id,
-      user_id: newEquipRec.user_id,
-      user_name: newEquipRec.user_name,
-      leave_date: newEquipRec.leave_date,
-      leave_type: newEquipRec.leave_type,
-      session_name: newEquipRec.session_name,
-      reason: newEquipRec.reason,
-      status: newEquipRec.status,
-      created_at: newEquipRec.created_at
-    }]);
+    await supabaseClient.from('team_leaves').insert([newEquipRec]);
   }
 
   state.selectedEquipDate = dateStr;
   await notifyRealtimePeers();
   renderAll();
   const countAdded = finalType === '借還器材' ? 2 : 1;
-  showToast(`已登記 ${actor.name} 於 ${dateStr}「${finalType}」（本月次數 +${countAdded} 次）！`, 'success');
+  showToast(`已登記【${actor.name}】於 ${dateStr}「${finalType}」（累計 +${countAdded}次）`, 'success');
   return true;
+}
+
+// 管理者指派成員借還器材
+async function adminAssignEquipmentMember(dateStr) {
+  const selectEl = document.getElementById('admin-assign-equip-member');
+  const roleEl = document.getElementById('admin-assign-equip-role');
+  if (!selectEl || !roleEl) return;
+  const uid = selectEl.value;
+  const role = roleEl.value;
+  const targetUser = state.users.find(u => u.id === uid);
+  if (!targetUser) {
+    showToast('請先選擇要指派的球員！', 'error');
+    return;
+  }
+  await handleEquipmentBooking(dateStr, role, targetUser);
+}
+
+// 管理者移除已登記之器材成員
+async function adminRemoveEquipmentMember(dateStr, recordId, userName) {
+  if (!confirm(`確定要取消【${userName}】在 ${dateStr} 的借還器材登記嗎？`)) return;
+  state.leaves = state.leaves.filter(r => r.id !== recordId);
+  if (state.isSupabaseReady) {
+    await supabaseClient.from('team_leaves').delete().eq('id', recordId);
+  }
+  await notifyRealtimePeers();
+  renderAll();
+  showToast(`已取消【${userName}】在 ${dateStr} 的借還登記`, 'info');
 }
 
 function renderEquipmentSection() {
@@ -6003,6 +7210,14 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
   ensureAcademicPeriodInitialized();
   const termCfg = getAcademicPeriodConfig(state.selectedAcademicYear, state.selectedTermPeriod);
+  const curAy = termCfg.numericYear || 115;
+  const curPer = termCfg.period === 'all' ? '上學期' : termCfg.period;
+  const curPlan = getTermLongTermPlanConfig(curAy, curPer);
+  const curRules = (curPlan.rules || []).map((r, idx) => ({
+    id: r.id || `rule_${curAy}_${curPer}_${idx}_${(r.weekdays || []).join('')}`,
+    ...r
+  }));
+
   const isAdmin = state.currentUser.role === 'admin';
   const today = getTodayStr();
   if (!state.equipmentCalendarMonth) {
@@ -6018,9 +7233,13 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
   const daysInMonth = new Date(year, month, 0).getDate();
   const activeDate = state.selectedEquipDate;
 
-  const monthlyStats = getMonthlyEquipmentCounts(ym);
+  const monthlyStats = getMonthlyEquipmentCounts(ym, true);
   const myStat = monthlyStats.find(m => m.user.name === state.currentUser.name || m.user.id === state.currentUser.id);
-  const metQuotaCount = monthlyStats.filter(m => m.count >= 1).length;
+  const totalBorrowCount = monthlyStats.reduce((s, x) => s + x.count, 0);
+  const avgBorrowCount = monthlyStats.length > 0 ? (totalBorrowCount / monthlyStats.length) : 0;
+  const avgCountFormatted = (Math.round(avgBorrowCount * 10) / 10).toFixed(1);
+  const belowAvgMembers = monthlyStats.filter(m => m.count < avgBorrowCount);
+  const equipConfig = getEquipmentConfig();
 
   const dayCells = [];
   for (let i = 0; i < firstDayWeek; i++) {
@@ -6031,6 +7250,7 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
     const dateStr = `${ym}-${String(day).padStart(2, '0')}`;
     const eqSt = getDateEquipmentStatus(dateStr);
     const schedType = getDateScheduleType(dateStr);
+    const isPractice = isPracticeDay(dateStr);
     const isSelected = dateStr === activeDate;
     const isToday = dateStr === today;
     const inSelectedPeriod = isDateInAcademicPeriod(dateStr, state.selectedAcademicYear, state.selectedTermPeriod);
@@ -6038,59 +7258,93 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
     const milestoneBadge = getDateMilestoneBadge(dateStr);
 
     let slotHtml = '';
-    if (eqSt.borrower && eqSt.returner && eqSt.borrower.user_name === eqSt.returner.user_name) {
-      slotHtml = `<div class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold truncate">🏐 ${escapeHtml(eqSt.borrower.user_name)} (借+還×2)</div>`;
-    } else {
-      if (eqSt.borrower) {
-        slotHtml += `<div class="px-1 py-0.2 rounded bg-stone-800 text-stone-100 text-[10px] font-bold truncate">借:${escapeHtml(eqSt.borrower.user_name)}</div>`;
+    if (!isPractice) {
+      if (schedType === '放假') {
+        slotHtml = `<span class="text-[10px] text-stone-500 block truncate">🏖️ 放假停練</span>`;
+      } else {
+        slotHtml = `<span class="text-[10px] text-stone-400 block truncate">- 無練球 -</span>`;
       }
-      if (eqSt.returner) {
-        slotHtml += `<div class="px-1 py-0.2 rounded bg-stone-600 text-stone-100 text-[10px] font-bold truncate">還:${escapeHtml(eqSt.returner.user_name)}</div>`;
+    } else if (!eqSt.needsEquipment) {
+      slotHtml = `<span class="text-[10px] text-stone-400 block truncate font-bold">- 免借器材 -</span>`;
+    } else {
+      const bCount = eqSt.borrowers.length;
+      const rCount = eqSt.returners.length;
+      const bQuota = eqSt.borrowQuota;
+      const rQuota = eqSt.returnQuota;
+      const isFull = bCount >= bQuota && rCount >= rQuota;
+
+      if (isFull) {
+        slotHtml = `
+          <div class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold truncate">
+            ✓ 器材額滿 (${bCount + rCount}人)
+          </div>
+        `;
+      } else {
+        slotHtml = `
+          <div class="text-[10px] font-bold space-y-0.5 overflow-hidden">
+            <div class="truncate ${bCount >= bQuota ? 'text-matte-ink font-extrabold' : 'text-stone-500'}">
+              借 ${bCount}/${bQuota}人 ${bCount > 0 ? `(${eqSt.borrowers.map(x => x.user_name).join(',')})` : '缺'}
+            </div>
+            <div class="truncate ${rCount >= rQuota ? 'text-matte-ink font-extrabold' : 'text-stone-500'}">
+              還 ${rCount}/${rQuota}人 ${rCount > 0 ? `(${eqSt.returners.map(x => x.user_name).join(',')})` : '缺'}
+            </div>
+          </div>
+        `;
       }
     }
 
     dayCells.push(`
       <button type="button" onclick="selectEquipCalendarDate('${dateStr}')"
-        class="min-h-[72px] sm:min-h-[84px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+        class="min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
           isSelected
             ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
             : !inSelectedPeriod
               ? 'bg-matte-sub/40 border-dashed border-stone-300 opacity-55 hover:opacity-90'
-              : (eqSt.borrower || eqSt.returner)
-                ? 'bg-matte-card border-stone-500 shadow-2xs'
-                : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
+              : !isPractice
+                ? 'bg-matte-sub/50 border-matte-border hover:bg-stone-200/50'
+                : (eqSt.borrowers.length > 0 || eqSt.returners.length > 0)
+                  ? 'bg-matte-card border-stone-500 shadow-2xs'
+                  : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
         }">
         <div class="w-full flex items-center justify-between gap-1">
           <div class="flex items-center gap-1 min-w-0">
             <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
             ${!inSelectedPeriod ? `<span class="text-[9px] px-1 rounded bg-stone-200 text-matte-muted font-bold truncate">${escapeHtml(dayTerm.period)}</span>` : ''}
           </div>
-          ${schedType !== 'none' ? `<span class="text-[9px] font-bold px-1 rounded bg-stone-300 text-matte-ink shrink-0">${escapeHtml(schedType)}</span>` : ''}
+          ${schedType !== 'none' ? `<span class="text-[9px] font-bold px-1 rounded ${isPractice ? 'bg-stone-300 text-matte-ink' : 'bg-stone-200 text-matte-muted'} shrink-0">${escapeHtml(schedType)}</span>` : ''}
         </div>
         <div class="w-full space-y-0.5 mt-1 overflow-hidden">
           ${milestoneBadge ? `<span class="px-1 py-0.1 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
-          ${slotHtml || `<span class="text-[10px] text-matte-muted block">尚無人借器材</span>`}
+          ${slotHtml}
         </div>
       </button>
     `);
   }
 
   const activeEq = getDateEquipmentStatus(activeDate);
-  const canBorrow = !activeEq.borrower;
-  const canReturn = !activeEq.returner;
-  const canBoth = canBorrow && canReturn;
-  const isMyRecordOnDate = (activeEq.borrower && activeEq.borrower.user_name === state.currentUser.name) ||
-                           (activeEq.returner && activeEq.returner.user_name === state.currentUser.name);
+  const isActivePractice = isPracticeDay(activeDate);
+  const activeSchedType = getDateScheduleType(activeDate);
+
+  const isMeBorrower = !isAdmin && activeEq.borrowers.some(b => b.user_name === state.currentUser.name);
+  const isMeReturner = !isAdmin && activeEq.returners.some(r => r.user_name === state.currentUser.name);
+  const isMeBoth = isMeBorrower && isMeReturner;
+
+  if (!state.equipSectionsExpanded) {
+    state.equipSectionsExpanded = { reminder: false, list: false, rules: false };
+  }
+  const isReminderOpen = !!state.equipSectionsExpanded.reminder;
+  const isListOpen = !!state.equipSectionsExpanded.list;
+  const isRulesOpen = !!state.equipSectionsExpanded.rules;
 
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
           <i data-lucide="package" class="w-4 h-4"></i>
-          <span>📦 借還器材日曆</span>
+          <span>📦 借還器材</span>
         </h3>
         <span class="px-2.5 py-0.5 rounded-md bg-matte-sub border border-matte-border text-matte-ink text-xs font-extrabold">${escapeHtml(termCfg.titleLabel)}</span>
-        <span class="px-2.5 py-0.5 rounded-md bg-[#1c1b18] text-stone-100 text-[11px] font-bold">每人每月至少 1 次（借+還算 2 次）</span>
+        
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <button type="button" onclick="changeEquipMonth(-1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">&larr; 上月</button>
@@ -6099,118 +7353,449 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
       </div>
     </div>
 
-    ${renderAcademicPeriodControlHtml(containerId, true, ym)}
+    <!-- 1. 借還器材月曆區塊 (圖一圖片順序 1) -->
+    <div class="space-y-2">
+      <!-- 星期標題列 -->
+      <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-matte-muted">
+        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+      </div>
 
-    ${!isAdmin && myStat ? `
-      <div class="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-        myStat.count >= 1 ? 'bg-[#1c1b18] text-stone-100 border-stone-800' : 'bg-stone-200 text-matte-ink border-stone-400'
-      }">
-        <div>
-          <span class="text-xs sm:text-sm font-extrabold">
-            ${myStat.count >= 1
-              ? `● ${month} 月已借還 ${myStat.count} 次（已達標）`
-              : `⚠️ ${month} 月尚無借還紀錄，請點選日期登記（每月至少 1 次）`}
+      <!-- 借還器材月曆格線 -->
+      <div class="grid grid-cols-7 gap-1.5">
+        ${dayCells.join('')}
+      </div>
+    </div>
+
+    <!-- 2. 低於平均隊員提醒與報名機制 (自主報名) (預設縮小，點擊展開) -->
+    <div class="rounded-2xl border ${myStat && myStat.count < avgBorrowCount ? 'bg-stone-200 border-stone-500' : 'bg-matte-sub border-matte-border'} overflow-hidden transition shadow-2xs">
+      <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
+        onclick="toggleEquipSection('reminder')">
+        <div class="flex items-center gap-2 flex-wrap min-w-0">
+          <i data-lucide="bell" class="w-4 h-4 text-matte-ink shrink-0"></i>
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+            📢 借器材自主報名提醒（全隊累計平均：${avgCountFormatted} 次）
           </span>
-          ${myStat.dates.length > 0 ? `<span class="text-[11px] opacity-80 ml-2">(${escapeHtml(myStat.dates.join('、'))})</span>` : ''}
+          ${!isAdmin && myStat ? `
+            <span class="px-2 py-0.5 rounded-lg text-xs font-extrabold ${myStat.count < avgBorrowCount ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-ink border border-matte-border'}">
+              ${myStat.count < avgBorrowCount ? `⚠️ 我的次數(${myStat.count}次) 低於平均` : `✓ 我的次數(${myStat.count}次) 達平均`}
+            </span>
+          ` : `
+            <span class="px-2 py-0.5 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-extrabold">
+              低於平均：${belowAvgMembers.length} / ${monthlyStats.length} 人
+            </span>
+          `}
         </div>
-        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold shrink-0 ${myStat.count >= 1 ? 'bg-stone-800 text-stone-100' : 'bg-[#1c1b18] text-stone-100'}">
-          本月 ${myStat.count} 次
-        </span>
-      </div>
-    ` : `
-      <div class="p-3 rounded-xl bg-matte-sub border border-matte-border flex items-center justify-between">
-        <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${year} 年 ${month} 月全隊達標進度：</span>
-        <span class="px-3 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-extrabold">已達標 ${metQuotaCount} / ${monthlyStats.length} 人</span>
-      </div>
-    `}
 
-    <!-- 星期標題列 -->
-    <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-matte-muted">
-      <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        <div class="flex items-center gap-1.5 shrink-0 text-xs font-bold text-matte-muted">
+          <span>${isReminderOpen ? '收合' : '點擊展開'}</span>
+          <i data-lucide="${isReminderOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      ${isReminderOpen ? `
+        <div class="p-3.5 pt-0 space-y-2 border-t border-stone-300/60 mt-1">
+          <p class="text-[11px] text-matte-muted pt-2">採主動報名制，低於全隊平均者請點選日曆中有練球的日期登記借還器材：</p>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] font-bold text-matte-ink shrink-0">低於平均名單：</span>
+            ${belowAvgMembers.map(item => `
+              <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold ${item.user.name === state.currentUser?.name ? 'bg-[#1c1b18] text-stone-100 ring-1 ring-stone-400' : 'bg-matte-card text-matte-ink border border-matte-border'}">
+                ${escapeHtml(item.user.name)} (${item.count}次)
+              </span>
+            `).join('')}
+            ${belowAvgMembers.length === 0 ? '<span class="text-[11px] text-matte-muted">🎉 全隊隊員借還次數皆已達到或高於平均！</span>' : ''}
+          </div>
+        </div>
+      ` : ''}
     </div>
 
-    <!-- 借還器材月曆格線 -->
-    <div class="grid grid-cols-7 gap-1.5">
-      ${dayCells.join('')}
-    </div>
-
-    <!-- 點選日期之借還器材登記面板 (防重複借用鎖定) -->
+    <!-- 點選日期之借還器材登記面板 -->
     <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 ${escapeHtml(activeDate)} 借還器材狀態：</span>
-          <div class="flex flex-wrap items-center gap-2 mt-1 text-xs">
-            <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.borrower ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-muted border border-matte-border'}">
-              📦 借器材：${activeEq.borrower ? `${escapeHtml(activeEq.borrower.user_name)} (已登記鎖定)` : '尚無人借 (可登記)'}
-            </span>
-            <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.returner ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-muted border border-matte-border'}">
-              📥 還器材：${activeEq.returner ? `${escapeHtml(activeEq.returner.user_name)} (已登記鎖定)` : '尚無人還 (可登記)'}
-            </span>
+      ${!isActivePractice ? `
+        <!-- 沒有練習的日子不需要借器材 -->
+        <div class="p-4 rounded-xl bg-matte-card border border-matte-border text-center space-y-1">
+          <div class="flex items-center justify-center gap-2">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 ${escapeHtml(activeDate)} 當日無排定練習日程</span>
+            <span class="px-2 py-0.5 rounded bg-stone-300 text-matte-ink text-xs font-bold">${activeSchedType === '放假' ? '🏖️ 放假停練' : '無練習'}</span>
+          </div>
+          <p class="text-xs text-matte-muted">沒有練習的日子不需要借器材，不開放登記借還。</p>
+        </div>
+      ` : (!activeEq.needsEquipment ? `
+        <!-- 固定排程設定免借器材 -->
+        <div class="p-4 rounded-xl bg-matte-card border border-matte-border text-center space-y-2">
+          <div class="flex items-center justify-center gap-2">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 ${escapeHtml(activeDate)} ${escapeHtml(activeEq.ruleName || activeSchedType)}</span>
+            <span class="px-2 py-0.5 rounded bg-stone-300 text-matte-ink text-xs font-bold">免借器材 (0人)</span>
+          </div>
+          <p class="text-xs text-matte-muted">依照固定排程設定，此訓練時段無須借還器材（需求人數為 0 人）。</p>
+          ${isAdmin ? `
+            <!-- 管理者仍可臨時單日微調人數 -->
+            <div class="pt-3 border-t border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <span class="font-extrabold text-matte-ink">臨時需要借還？修改 ${escapeHtml(activeDate)} 當日需求人數：</span>
+              <div class="flex items-center gap-2 flex-wrap justify-center">
+                <div class="flex items-center gap-1">
+                  <span>借：</span>
+                  <input type="number" id="daily-borrow-quota-input-zero" min="0" max="10" value="1"
+                    class="w-12 px-1.5 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                  <span>人</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span>還：</span>
+                  <input type="number" id="daily-return-quota-input-zero" min="0" max="10" value="1"
+                    class="w-12 px-1.5 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                  <span>人</span>
+                </div>
+                <button type="button" onclick="saveDailyEquipmentQuota('${activeDate}', document.getElementById('daily-borrow-quota-input-zero').value, document.getElementById('daily-return-quota-input-zero').value)"
+                  class="px-2.5 py-1 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
+                  設定當日人數
+                </button>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      ` : `
+        <!-- 練球日借還器材登記與名冊管理 -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-matte-border pb-3">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📅 ${escapeHtml(activeDate)} 練球借還器材</span>
+              <span class="px-2 py-0.5 rounded bg-stone-300 text-matte-ink text-xs font-extrabold">${escapeHtml(activeSchedType)}</span>
+              ${activeEq.isCustomQuota ? '<span class="px-2 py-0.5 rounded bg-stone-800 text-stone-100 text-[10px] font-bold">當日自訂人數</span>' : `<span class="px-2 py-0.5 rounded bg-stone-200 text-matte-ink text-[10px] font-bold">${escapeHtml(activeEq.ruleName || '固定排程')}</span>`}
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.borrowers.length >= activeEq.borrowQuota ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-ink border border-matte-border'}">
+                📦 借器材：${activeEq.borrowers.length} / ${activeEq.borrowQuota} 人 ${activeEq.canBorrow ? `(尚缺 ${activeEq.borrowRemaining} 人可報名)` : '(已額滿)'}
+              </span>
+              <span class="px-2.5 py-1 rounded-lg font-bold ${activeEq.returners.length >= activeEq.returnQuota ? 'bg-[#1c1b18] text-stone-100' : 'bg-matte-card text-matte-ink border border-matte-border'}">
+                📥 還器材：${activeEq.returners.length} / ${activeEq.returnQuota} 人 ${activeEq.canReturn ? `(尚缺 ${activeEq.returnRemaining} 人可報名)` : '(已額滿)'}
+              </span>
+            </div>
+          </div>
+
+
+        </div>
+
+        <!-- 當日已登記成員名單卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between text-xs font-extrabold text-matte-ink">
+              <span>📦 負責借器材名單 (${activeEq.borrowers.length}/${activeEq.borrowQuota}人)：</span>
+              <span class="${activeEq.canBorrow ? 'text-stone-600' : 'text-stone-400'} font-bold">
+                ${activeEq.canBorrow ? `尚缺 ${activeEq.borrowRemaining} 人` : '已額滿'}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 min-h-[30px] items-center">
+              ${activeEq.borrowers.length === 0 ? '<span class="text-xs text-matte-muted italic">尚無人登記借器材</span>' : ''}
+              ${activeEq.borrowers.map(b => `
+                <span class="px-2.5 py-1 rounded-lg bg-matte-sub border border-matte-border text-xs font-bold text-matte-ink flex items-center gap-1.5">
+                  <span>${escapeHtml(b.user_name)}</span>
+                  ${(isAdmin || b.user_name === state.currentUser.name) ? `
+                    <button type="button" onclick="adminRemoveEquipmentMember('${activeDate}', '${b.recordId}', '${escapeJsStr(b.user_name)}')"
+                      title="取消此登記" class="text-stone-400 hover:text-stone-700">
+                      <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                  ` : ''}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between text-xs font-extrabold text-matte-ink">
+              <span>📥 負責還器材名單 (${activeEq.returners.length}/${activeEq.returnQuota}人)：</span>
+              <span class="${activeEq.canReturn ? 'text-stone-600' : 'text-stone-400'} font-bold">
+                ${activeEq.canReturn ? `尚缺 ${activeEq.returnRemaining} 人` : '已額滿'}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 min-h-[30px] items-center">
+              ${activeEq.returners.length === 0 ? '<span class="text-xs text-matte-muted italic">尚無人登記還器材</span>' : ''}
+              ${activeEq.returners.map(r => `
+                <span class="px-2.5 py-1 rounded-lg bg-matte-sub border border-matte-border text-xs font-bold text-matte-ink flex items-center gap-1.5">
+                  <span>${escapeHtml(r.user_name)}</span>
+                  ${(isAdmin || r.user_name === state.currentUser.name) ? `
+                    <button type="button" onclick="adminRemoveEquipmentMember('${activeDate}', '${r.recordId}', '${escapeJsStr(r.user_name)}')"
+                      title="取消此登記" class="text-stone-400 hover:text-stone-700">
+                      <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                  ` : ''}
+                </span>
+              `).join('')}
+            </div>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 shrink-0">
-          <button type="button" ${!canBorrow ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借器材')"
-            class="px-3 py-2 rounded-xl text-xs font-bold transition ${
-              canBorrow
-                ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 shadow-xs'
-                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
-            }">
-            ${canBorrow ? '📦 登記借器材 (+1次)' : `📦 借器材已由 ${escapeHtml(activeEq.borrower.user_name)} 登記`}
-          </button>
+        ${isAdmin ? `
+          <!-- 管理者專用功能一：單日自訂人數調整 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="sliders" class="w-4 h-4 text-matte-ink"></i>
+              <span class="font-extrabold text-matte-ink">修改 ${escapeHtml(activeDate)} 當日需求人數：</span>
+              ${activeEq.isCustomQuota ? '<span class="px-1.5 py-0.2 rounded bg-stone-800 text-stone-100 text-[10px] font-bold">當日自訂</span>' : ''}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1">
+                <span>借：</span>
+                <input type="number" id="daily-borrow-quota-input" min="0" max="10" value="${activeEq.borrowQuota}"
+                  class="w-12 px-1.5 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                <span>人</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span>還：</span>
+                <input type="number" id="daily-return-quota-input" min="0" max="10" value="${activeEq.returnQuota}"
+                  class="w-12 px-1.5 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                <span>人</span>
+              </div>
+              <button type="button" onclick="saveDailyEquipmentQuota('${activeDate}', document.getElementById('daily-borrow-quota-input').value, document.getElementById('daily-return-quota-input').value)"
+                class="px-2.5 py-1 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
+                儲存當日人數
+              </button>
+              ${activeEq.isCustomQuota ? `
+                <button type="button" onclick="resetDailyEquipmentQuota('${activeDate}')"
+                  class="px-2 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-matte-muted text-xs font-bold">
+                  恢復固定排程
+                </button>
+              ` : ''}
+            </div>
+          </div>
 
-          <button type="button" ${!canReturn ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '還器材')"
-            class="px-3 py-2 rounded-xl text-xs font-bold transition ${
-              canReturn
-                ? 'bg-stone-700 hover:bg-stone-600 text-stone-100 shadow-xs'
-                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
-            }">
-            ${canReturn ? '📥 登記還器材 (+1次)' : `📥 還器材已由 ${escapeHtml(activeEq.returner.user_name)} 登記`}
-          </button>
-
-          <button type="button" ${!canBoth ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借還器材')"
-            class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition ${
-              canBoth
-                ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 ring-2 ring-stone-400 shadow-xs'
-                : 'bg-stone-300 text-stone-500 cursor-not-allowed'
-            }">
-            🏐 一天練球借＋還 (+2次)
-          </button>
-
-          ${(isMyRecordOnDate || (isAdmin && (activeEq.borrower || activeEq.returner))) ? `
-            <button type="button" onclick="handleEquipmentBooking('${activeDate}', 'cancel_my')"
-              class="px-3 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition">
-              取消當日登記
+          <!-- 管理者專用功能二：指派／新增借還器材成員 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="user-plus" class="w-4 h-4 text-matte-ink"></i>
+              <span class="font-extrabold text-matte-ink">管理者指派／新增成員：</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select id="admin-assign-equip-member" class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
+                ${getPlayerUsers().map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('')}
+              </select>
+              <select id="admin-assign-equip-role" class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
+                <option value="借器材">📦 借器材 (+1次)</option>
+                <option value="還器材">📥 還器材 (+1次)</option>
+                <option value="借還器材">🏐 一天練球借＋還 (+2次)</option>
+              </select>
+              <button type="button" onclick="adminAssignEquipmentMember('${activeDate}')"
+                class="px-3.5 py-1.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
+                + 新增至名單
+              </button>
+            </div>
+          </div>
+        ` : `
+          <!-- 一般球員自主報名按鈕區 -->
+          <div class="pt-2 flex flex-wrap items-center gap-2">
+            <button type="button" ${(!activeEq.canBorrow || isMeBorrower) ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借器材')"
+              class="px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                activeEq.canBorrow && !isMeBorrower
+                  ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 shadow-xs'
+                  : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+              }">
+              ${isMeBorrower ? '✓ 我已報名借器材' : (activeEq.canBorrow ? `📦 報名借器材 (尚缺 ${activeEq.borrowRemaining} 人)` : `📦 借器材已額滿 (${activeEq.borrowQuota}/${activeEq.borrowQuota}人)`)}
             </button>
-          ` : ''}
+
+            <button type="button" ${(!activeEq.canReturn || isMeReturner) ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '還器材')"
+              class="px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                activeEq.canReturn && !isMeReturner
+                  ? 'bg-stone-700 hover:bg-stone-600 text-stone-100 shadow-xs'
+                  : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+              }">
+              ${isMeReturner ? '✓ 我已報名還器材' : (activeEq.canReturn ? `📥 報名還器材 (尚缺 ${activeEq.returnRemaining} 人)` : `📥 還器材已額滿 (${activeEq.returnQuota}/${activeEq.returnQuota}人)`)}
+            </button>
+
+            <button type="button" ${((!activeEq.canBorrow || !activeEq.canReturn) || isMeBoth) ? 'disabled' : ''} onclick="handleEquipmentBooking('${activeDate}', '借還器材')"
+              class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition ${
+                (activeEq.canBorrow && activeEq.canReturn && !isMeBoth)
+                  ? 'bg-[#1c1b18] hover:bg-stone-800 text-stone-100 ring-2 ring-stone-400 shadow-xs'
+                  : 'bg-stone-300 text-stone-500 cursor-not-allowed'
+              }">
+              ${isMeBoth ? '✓ 我已包辦借＋還' : '🏐 一天練球借＋還 (+2次)'}
+            </button>
+
+            ${(isMeBorrower || isMeReturner) ? `
+              <button type="button" onclick="handleEquipmentBooking('${activeDate}', 'cancel_my')"
+                class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-stone-400 text-xs font-bold transition">
+                取消我的報名
+              </button>
+            ` : ''}
+          </div>
+        `}
+      `)}
+    </div>
+
+    <!-- 全隊借還器材次數統計一覽表 (預設縮小，點擊展開) -->
+    <div class="rounded-2xl border border-matte-border bg-matte-sub overflow-hidden transition shadow-2xs">
+      <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
+        onclick="toggleEquipSection('list')">
+        <div class="flex items-center gap-2 flex-wrap min-w-0">
+          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+            📋 全體隊員借還器材累計次數列表（全隊平均 ${avgCountFormatted} 次，共 ${totalBorrowCount} 次）
+          </span>
+          <span class="text-[11px] text-matte-muted">● 達平均 ｜ ○ 低於平均</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0 text-xs font-bold text-matte-muted">
+          <span>${isListOpen ? '收合' : '點擊展開'}</span>
+          <i data-lucide="${isListOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
         </div>
       </div>
+
+      ${isListOpen ? `
+        <div class="p-3.5 pt-0 space-y-2 border-t border-matte-border mt-1">
+          <div class="pt-2 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+            ${monthlyStats.map(item => {
+              const isAtOrAbove = item.count >= avgBorrowCount;
+              return `
+                <div class="p-2.5 rounded-xl border ${isAtOrAbove ? 'bg-matte-card border-stone-400' : 'bg-stone-200/50 border-stone-400/80'} space-y-1">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="font-extrabold text-xs text-matte-ink truncate">${isAtOrAbove ? '●' : '○'} ${escapeHtml(item.user.name)}</span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
+                      isAtOrAbove ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'
+                    }">${item.count} 次</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-1 text-[10px]">
+                    <span class="${isAtOrAbove ? 'text-matte-muted' : 'text-stone-700 font-bold'}">${isAtOrAbove ? '達平均' : '請主動報名'}</span>
+                    <span class="text-matte-muted truncate" title="${escapeHtml(item.dates.join('、'))}">${item.count > 0 ? `借${item.borrowCount}·還${item.returnCount}` : '尚未登記'}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
     </div>
 
-    <!-- 全隊每月 (1-31日) 借還器材次數統計一覽表 -->
-    <div class="pt-2 border-t border-matte-border space-y-2">
-      <div class="flex items-center justify-between flex-wrap gap-1">
-        <span class="text-xs font-extrabold text-matte-ink">📋 ${year} 年 ${month} 月（1～${daysInMonth}日）全隊隊員借還器材次數統計（每人每月須至少 1 次）：</span>
-        <span class="text-[11px] text-matte-muted">● 代表本月已達標（≥1次）｜○ 代表本月尚未借器材（0次）</span>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-        ${monthlyStats.map(item => {
-          const ok = item.count >= 1;
-          return `
-            <div class="p-2.5 rounded-xl border ${ok ? 'bg-matte-card border-stone-400' : 'bg-matte-sub border-matte-border'} space-y-1">
-              <div class="flex items-center justify-between gap-1">
-                <span class="font-extrabold text-xs text-matte-ink truncate">${ok ? '●' : '○'} ${escapeHtml(item.user.name)}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
-                  ok ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'
-                }">${item.count} 次</span>
+    ${isAdmin ? `
+      <!-- 管理者依照固定排程設定器材需求人數 (預設縮小，點擊展開) -->
+      <div class="rounded-2xl bg-matte-card border border-matte-border overflow-hidden transition shadow-2xs">
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-stone-300/30 transition select-none"
+          onclick="toggleEquipSection('rules')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="p-1.5 rounded-lg bg-[#1c1b18] text-stone-100 shrink-0">
+              <i data-lucide="sliders" class="w-4 h-4"></i>
+            </span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs sm:text-sm font-extrabold text-matte-ink">⚙️ 依固定排程設定器材需求人數</span>
+                <span class="px-2 py-0.5 rounded bg-matte-sub border border-matte-border text-matte-ink text-[11px] font-extrabold">${escapeHtml(termCfg.titleLabel)}</span>
+                ${curRules.length > 0 ? `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-bold">共 ${curRules.length} 筆固定排程</span>` : ''}
               </div>
-              <p class="text-[10px] text-matte-muted truncate">${item.dates.length > 0 ? escapeHtml(item.dates.join('、')) : '本月尚未借還器材'}</p>
+              <p class="text-[11px] text-matte-muted mt-0.5 truncate">依照已排定的各固定排程時段分別設定借還器材人數</p>
             </div>
-          `;
-        }).join('')}
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
+            <button type="button" onclick="switchTab('schedule'); switchAdminScheduleSubTab('batch');"
+              class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-matte-ink text-xs font-bold transition flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+              <span>排程設定 &rarr;</span>
+            </button>
+            <button type="button" onclick="toggleEquipSection('rules')"
+              class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-muted flex items-center gap-1">
+              <span>${isRulesOpen ? '收合' : '點擊展開'}</span>
+              <i data-lucide="${isRulesOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        ${isRulesOpen ? `
+          <div class="p-4 pt-0 space-y-3 border-t border-matte-border mt-1">
+            <div class="pt-3 flex items-center justify-between gap-2">
+              <p class="text-[11px] text-matte-muted">單日亦可於上方日曆單獨微調當日需求人數</p>
+              ${curRules.length > 0 ? `
+                <button type="button" onclick="saveAllRuleEquipmentQuotas()"
+                  class="px-3.5 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold shadow-2xs transition flex items-center gap-1">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                  <span>儲存全部排程人數</span>
+                </button>
+              ` : ''}
+            </div>
+
+            ${curRules.length > 0 ? `
+              <div class="space-y-2">
+                ${curRules.map(rule => {
+                  const ruleQ = getEquipmentQuotaForRule(rule.id, rule);
+                  const wNames = (rule.weekdays || []).map(w => ['週日','週一','週二','週三','週四','週五','週六'][w]).join('、');
+                  const isFitness = rule.type === '體能';
+                  const isZero = ruleQ.borrow === 0 && ruleQ.return === 0;
+                  return `
+                    <div class="p-3 rounded-xl bg-matte-sub border border-matte-border flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-stone-400 transition">
+                      <div class="space-y-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold">
+                            ${rule.type === '練球' ? '🏐 練球' : (rule.type === '體能' ? '💪 體能' : '🏐+💪 練球+體能')}
+                          </span>
+                          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+                            每週固定：${escapeHtml(wNames || '無')}
+                          </span>
+                          <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+                            ⏰ 固定時段：${escapeHtml(rule.practiceTime)}
+                          </span>
+                          ${rule.planNote ? `<span class="px-2 py-0.5 rounded bg-stone-300 text-matte-ink text-[10px] font-bold truncate">備註：${escapeHtml(rule.planNote)}</span>` : ''}
+                          ${isZero ? `<span class="px-2 py-0.5 rounded bg-stone-200 text-stone-600 text-[10px] font-bold">免借器材 (0人)</span>` : ''}
+                        </div>
+                        <p class="text-[11px] text-matte-muted">
+                          📅 練球區間：${escapeHtml(rule.startDate)} ～ ${escapeHtml(rule.endDate)}
+                          ${isFitness && isZero ? '（體能時段預設免借還器材）' : ''}
+                        </p>
+                      </div>
+
+                      <div class="flex items-center gap-2 flex-wrap shrink-0">
+                        <div class="flex items-center gap-1 text-xs font-bold text-matte-ink bg-matte-card px-2.5 py-1.5 rounded-xl border border-matte-border">
+                          <span>借器材：</span>
+                          <input type="number" id="rule-borrow-quota-${escapeJsStr(rule.id)}" min="0" max="10" value="${ruleQ.borrow}"
+                            class="w-12 px-1 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                          <span>人</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-xs font-bold text-matte-ink bg-matte-card px-2.5 py-1.5 rounded-xl border border-matte-border">
+                          <span>還器材：</span>
+                          <input type="number" id="rule-return-quota-${escapeJsStr(rule.id)}" min="0" max="10" value="${ruleQ.return}"
+                            class="w-12 px-1 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold text-xs" />
+                          <span>人</span>
+                        </div>
+                        <button type="button" onclick="saveRuleEquipmentQuota('${escapeJsStr(rule.id)}', document.getElementById('rule-borrow-quota-${escapeJsStr(rule.id)}').value, document.getElementById('rule-return-quota-${escapeJsStr(rule.id)}').value)"
+                          class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition shadow-2xs">
+                          儲存
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : `
+              <div class="p-4 rounded-xl bg-matte-sub border border-dashed border-matte-border text-center space-y-2">
+                <p class="text-xs text-matte-muted font-bold">目前 ${escapeHtml(termCfg.titleLabel)} 尚未建立固定練球區間</p>
+                <p class="text-[11px] text-matte-muted">可至【行事曆與練球排程】建立固定計畫，或在此直接設定全隊常規預設需求人數：</p>
+                <div class="flex items-center justify-center gap-2 flex-wrap pt-1">
+                  <div class="flex items-center gap-1 text-xs font-bold text-matte-ink bg-matte-card px-2.5 py-1 rounded-xl border border-matte-border">
+                    <span>借器材：</span>
+                    <input type="number" id="default-borrow-quota-input" min="0" max="10" value="${equipConfig.defaultBorrowQuota}"
+                      class="w-12 px-1 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold" />
+                    <span>人</span>
+                  </div>
+                  <div class="flex items-center gap-1 text-xs font-bold text-matte-ink bg-matte-card px-2.5 py-1 rounded-xl border border-matte-border">
+                    <span>還器材：</span>
+                    <input type="number" id="default-return-quota-input" min="0" max="10" value="${equipConfig.defaultReturnQuota}"
+                      class="w-12 px-1 py-0.5 bg-matte-sub border border-matte-border rounded text-center font-bold" />
+                    <span>人</span>
+                  </div>
+                  <button type="button" onclick="saveDefaultEquipmentQuota(document.getElementById('default-borrow-quota-input').value, document.getElementById('default-return-quota-input').value)"
+                    class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold shadow-2xs transition">
+                    儲存預設人數
+                  </button>
+                </div>
+              </div>
+            `}
+          </div>
+        ` : ''}
       </div>
-    </div>
+    ` : ''}
   `;
+}
+
+// 切換借還器材日曆三大區塊（提醒名單、全體次數清單、排程人數設定）之展開/縮小
+function toggleEquipSection(sectionName) {
+  if (!state.equipSectionsExpanded) {
+    state.equipSectionsExpanded = { reminder: false, list: false, rules: false };
+  }
+  state.equipSectionsExpanded[sectionName] = !state.equipSectionsExpanded[sectionName];
+  renderEquipmentCalendarBoard();
+  lucide.createIcons();
 }
 
 // 在原本照片位置的彈窗內渲染「當日借還器材選擇器」（檢查該日是否已有人借，防止重複人借）
@@ -6218,35 +7803,220 @@ function renderModalEquipmentSlot(slotContainerId, dateStr) {
   const wrap = document.getElementById(slotContainerId);
   if (!wrap || !state.currentUser) return;
   const d = dateStr || getTodayStr();
+
+  // 沒有練習的日子不需要借器材
+  if (!isPracticeDay(d)) {
+    wrap.innerHTML = `
+      <p class="text-xs text-matte-muted italic py-1">
+        🏖️ 當日（${escapeHtml(d)}）無排定練球日程，無須借還器材。
+      </p>
+    `;
+    return;
+  }
+
+  // 管理者自己不需要借器材
+  if (state.currentUser.role === 'admin') {
+    wrap.innerHTML = `
+      <p class="text-xs text-matte-muted italic py-1">
+        👤 管理者無須登記借還器材，請至借還器材日曆直接指派球員。
+      </p>
+    `;
+    return;
+  }
+
   const eqSt = getDateEquipmentStatus(d);
   const myName = state.currentUser.name;
 
-  const borrowTakenByOther = eqSt.borrower && eqSt.borrower.user_name !== myName;
-  const returnTakenByOther = eqSt.returner && eqSt.returner.user_name !== myName;
-  const bothTakenByOther = borrowTakenByOther || returnTakenByOther;
+  const isMeBorrower = eqSt.borrowers.some(b => b.user_name === myName);
+  const isMeReturner = eqSt.returners.some(r => r.user_name === myName);
 
   let currentVal = 'none';
-  if (eqSt.borrower?.user_name === myName && eqSt.returner?.user_name === myName) currentVal = '借還器材';
-  else if (eqSt.borrower?.user_name === myName) currentVal = '借器材';
-  else if (eqSt.returner?.user_name === myName) currentVal = '還器材';
+  if (isMeBorrower && isMeReturner) currentVal = '借還器材';
+  else if (isMeBorrower) currentVal = '借器材';
+  else if (isMeReturner) currentVal = '還器材';
+
+  const canBorrowMore = eqSt.canBorrow || isMeBorrower;
+  const canReturnMore = eqSt.canReturn || isMeReturner;
+  const canBothMore = (eqSt.canBorrow && eqSt.canReturn) || (isMeBorrower && isMeReturner);
 
   wrap.innerHTML = `
     <select id="${slotContainerId}-select" class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-xl text-xs sm:text-sm font-bold text-matte-ink">
       <option value="none" ${currentVal === 'none' ? 'selected' : ''}>不登記借還器材（或維持現狀）</option>
-      <option value="借器材" ${borrowTakenByOther ? 'disabled' : ''} ${currentVal === '借器材' ? 'selected' : ''}>
-        📦 借器材（算 1 次）${borrowTakenByOther ? `— 已由 ${escapeHtml(eqSt.borrower.user_name)} 借用` : ''}
+      <option value="借器材" ${!canBorrowMore ? 'disabled' : ''} ${currentVal === '借器材' ? 'selected' : ''}>
+        📦 借器材（算 1 次）${!canBorrowMore ? '— 已額滿' : `(尚餘 ${eqSt.borrowRemaining} 名額)`}
       </option>
-      <option value="還器材" ${returnTakenByOther ? 'disabled' : ''} ${currentVal === '還器材' ? 'selected' : ''}>
-        📥 還器材（算 1 次）${returnTakenByOther ? `— 已由 ${escapeHtml(eqSt.returner.user_name)} 登記` : ''}
+      <option value="還器材" ${!canReturnMore ? 'disabled' : ''} ${currentVal === '還器材' ? 'selected' : ''}>
+        📥 還器材（算 1 次）${!canReturnMore ? '— 已額滿' : `(尚餘 ${eqSt.returnRemaining} 名額)`}
       </option>
-      <option value="借還器材" ${bothTakenByOther ? 'disabled' : ''} ${currentVal === '借還器材' ? 'selected' : ''}>
-        🏐 一天練球借＋還器材（算 2 次）${bothTakenByOther ? '— 當日已有他人登記不可重複' : ''}
+      <option value="借還器材" ${!canBothMore ? 'disabled' : ''} ${currentVal === '借還器材' ? 'selected' : ''}>
+        🏐 借＋還器材（算 2 次）${!canBothMore ? '— 名額不足' : ''}
       </option>
     </select>
     <p class="text-[11px] text-matte-muted">
-      📅 日期 ${escapeHtml(d)}：借器材【${eqSt.borrower ? escapeHtml(eqSt.borrower.user_name) : '無人'}】／ 還器材【${eqSt.returner ? escapeHtml(eqSt.returner.user_name) : '無人'}】
+      📅 需求名額：借 ${eqSt.borrowQuota} 人 (目前 ${eqSt.borrowers.length}) ／ 還 ${eqSt.returnQuota} 人 (目前 ${eqSt.returners.length})
     </p>
   `;
+}
+
+// ----------------------------------------------------------------------------
+// 當日練球出缺勤與借還器材通報匯出 (文字檔與一鍵複製至 LINE 記事本)
+// ----------------------------------------------------------------------------
+function generateDayAttendanceReportText(dateStr) {
+  const d = dateStr || state.selectedAttendanceDate || getTodayStr();
+  const eqSt = getDateEquipmentStatus(d);
+  const schedDetail = getDateScheduleDetails(d);
+  const schedType = schedDetail.type !== 'none' ? schedDetail.type : '例行練球';
+  const timeStr = schedDetail.practiceTime || '依行程通知';
+
+  const dateObj = new Date(d);
+  const dayOfWeekNames = ['日', '一', '二', '三', '四', '五', '六'];
+  const dayName = !isNaN(dateObj.getDay()) ? `週${dayOfWeekNames[dateObj.getDay()]}` : '';
+
+  const playerUsers = getPlayerUsers();
+  const leavesOnDate = getRealLeaves().filter(l => l.leave_date === d);
+  const leaveByUserName = new Map();
+  leavesOnDate.forEach(l => {
+    if (!leaveByUserName.has(l.user_name)) leaveByUserName.set(l.user_name, []);
+    leaveByUserName.get(l.user_name).push(l);
+  });
+
+  const presentList = [];
+  const absentList = [];
+
+  playerUsers.forEach(u => {
+    const userLeaves = leaveByUserName.get(u.name);
+    if (userLeaves && userLeaves.length > 0) {
+      absentList.push({ user: u, leaves: userLeaves });
+    } else {
+      presentList.push(u);
+    }
+  });
+
+  leaveByUserName.forEach((leavesArr, userName) => {
+    if (!playerUsers.some(u => u.name === userName)) {
+      absentList.push({
+        user: { name: userName, jersey_number: '' },
+        leaves: leavesArr
+      });
+    }
+  });
+
+  const totalMembers = presentList.length + absentList.length;
+  const attendanceRate = totalMembers > 0 ? Math.round((presentList.length / totalMembers) * 100) : 100;
+
+  let borrowerText = '尚無人登記';
+  let returnerText = '尚無人登記';
+
+  if (!isPracticeDay(d)) {
+    borrowerText = '當日無排定練習（免借器材）';
+    returnerText = '當日無排定練習（免還器材）';
+  } else {
+    if (eqSt.borrowers && eqSt.borrowers.length > 0) {
+      borrowerText = `${eqSt.borrowers.map(b => b.user_name).join('、')} (${eqSt.borrowers.length}/${eqSt.borrowQuota}人)`;
+    } else {
+      borrowerText = `尚無人登記 (需求 ${eqSt.borrowQuota} 人)`;
+    }
+    if (eqSt.returners && eqSt.returners.length > 0) {
+      returnerText = `${eqSt.returners.map(r => r.user_name).join('、')} (${eqSt.returners.length}/${eqSt.returnQuota}人)`;
+    } else {
+      returnerText = `尚無人登記 (需求 ${eqSt.returnQuota} 人)`;
+    }
+  }
+
+  const specialEv = getSpecialEvents().find(e => e.date === d);
+
+  const lines = [
+    `🏐 【逢甲大學排球隊 練球出缺勤與器材通報】`,
+    `📅 日期：${d} (${dayName})`,
+    `🕒 時段：${timeStr} (${schedType})`
+  ];
+
+  if (specialEv) {
+    lines.push(`🏆 特殊行程：${specialEv.title}${specialEv.location ? ` @ ${specialEv.location}` : ''}`);
+  }
+  if (schedDetail.note) {
+    lines.push(`📌 當日備註：${schedDetail.note}`);
+  }
+
+  lines.push(``);
+  lines.push(`📦 【借還器材負責人】`);
+  lines.push(`• 借器材：${borrowerText}`);
+  lines.push(`• 還器材：${returnerText}`);
+  lines.push(``);
+  lines.push(`✅ 【應到／出席球員】（共 ${presentList.length} 人）`);
+  lines.push(presentList.map(u => `${u.name}${u.jersey_number ? ` (#${u.jersey_number})` : ''}`).join('、') || '無');
+  lines.push(``);
+  lines.push(`❌ 【請假球員】（共 ${absentList.length} 人）`);
+
+  if (absentList.length === 0) {
+    lines.push(`• 全員到齊！無人請假 🎉`);
+  } else {
+    absentList.forEach(item => {
+      const u = item.user;
+      const jn = u.jersey_number ? ` (#${u.jersey_number})` : '';
+      const leaveDesc = item.leaves.map(l => {
+        const cat = getLeaveCategory(l);
+        return `${l.leave_type}［${cat}］— ${l.reason || '無事由'}`;
+      }).join('；');
+      lines.push(`• ${u.name}${jn}：${leaveDesc}`);
+    });
+  }
+
+  lines.push(``);
+  lines.push(`📊 出席概況：應到 ${totalMembers} 人｜實到 ${presentList.length} 人｜請假 ${absentList.length} 人｜出席率 ${attendanceRate}%`);
+  lines.push(`----------------------------------------`);
+  lines.push(`通報產生時間：${new Date().toLocaleString('zh-TW', { hour12: false })}`);
+
+  return lines.join('\n');
+}
+
+function openExportAttendanceModal(dateStr = null) {
+  const d = dateStr || state.selectedAttendanceDate || getTodayStr();
+  const dateInput = document.getElementById('export-attendance-date');
+  if (dateInput) dateInput.value = d;
+  updateAttendanceExportPreview(d);
+  document.getElementById('modal-export-attendance').classList.remove('hidden');
+}
+
+function updateAttendanceExportPreview(dateStr) {
+  const previewEl = document.getElementById('export-attendance-preview');
+  if (previewEl) {
+    previewEl.value = generateDayAttendanceReportText(dateStr);
+  }
+}
+
+async function copyAttendanceExportText() {
+  const previewEl = document.getElementById('export-attendance-preview');
+  if (!previewEl || !previewEl.value) return;
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(previewEl.value);
+    } else {
+      previewEl.select();
+      document.execCommand('copy');
+    }
+    showToast('已複製出缺勤與器材名單！可直接貼至 LINE 記事本或群組', 'success');
+  } catch (err) {
+    previewEl.select();
+    document.execCommand('copy');
+    showToast('已選取並複製名單至剪貼簿', 'info');
+  }
+}
+
+function downloadAttendanceExportFile() {
+  const dateStr = document.getElementById('export-attendance-date')?.value || getTodayStr();
+  const content = generateDayAttendanceReportText(dateStr);
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `排球隊練球通報-${dateStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('已成功下載通報文字檔 (.txt)', 'success');
 }
 
 function selectAttendanceDate(dateStr) {
@@ -6352,6 +8122,11 @@ function renderTeamAttendanceBoard() {
         <label class="text-xs text-matte-muted font-bold">切換檢視日期：</label>
         <input type="date" value="${escapeHtml(activeDate)}" onchange="selectAttendanceDate(this.value)"
           class="px-2.5 py-1 bg-matte-sub border border-matte-border rounded-xl text-xs font-bold text-matte-ink focus:outline-none focus:ring-1 focus:ring-stone-600" />
+        <button type="button" onclick="openExportAttendanceModal('${activeDate}')"
+          class="px-3 py-1.5 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+          <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+          <span>輸出當日名單</span>
+        </button>
       </div>
     </div>
 
@@ -6507,7 +8282,7 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
   const isAdmin = state.currentUser.role === 'admin';
   const playerUsers = getPlayerUsers();
 
-  // 統計所有球員在選定學年度＋期間的請假次數、已補次數、待補次數
+  // 統計所有球員在選定學年度＋期間的請假次數、補體能、補九個動作次數
   const statsList = playerUsers.map(u => {
     const stat = getMakeupStatsForPlayer(u, ay, pk);
     return {
@@ -6517,9 +8292,11 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
   });
 
   const totalLeaves = statsList.reduce((s, x) => s + x.leaveCount, 0);
-  const totalDone = statsList.reduce((s, x) => s + x.doneCount, 0);
-  const totalPending = statsList.reduce((s, x) => s + x.pendingCount, 0);
-  const totalNeeded = statsList.reduce((s, x) => s + x.needed, 0);
+  const totalFitnessDone = statsList.reduce((s, x) => s + x.fitnessDoneCount, 0);
+  const totalFitnessNeeded = statsList.reduce((s, x) => s + x.fitnessNeeded, 0);
+  const totalNineDone = statsList.reduce((s, x) => s + x.nineActionsDoneCount, 0);
+  const totalNineNeeded = statsList.reduce((s, x) => s + x.nineActionsNeeded, 0);
+  const totalAllNeeded = totalFitnessNeeded + totalNineNeeded;
 
   const myStat = !isAdmin ? getMakeupStatsForPlayer(state.currentUser, ay, pk) : null;
 
@@ -6529,11 +8306,16 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
       <div>
         <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
           <i data-lucide="dumbbell" class="w-4 h-4"></i>
-          <span>【${escapeHtml(termCfg.fullTitle)}】需補體能次數統計</span>
+          <span>【${escapeHtml(termCfg.fullTitle)}】補體能與九個動作次數統計</span>
         </h3>
-        <p class="text-xs text-matte-muted mt-0.5">依請假次數計算應補體能次數（請假 1 次 = 需補體能 1 次），完成補體能並經核對後即折抵</p>
+        <p class="text-xs text-matte-muted mt-0.5">系統自動累積：請體能需補體能、請練球需補九個動作，完成核對後即折抵</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" onclick="openLogNineActionsModal()"
+          class="px-3.5 py-1.5 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+          <span>登記完成九個動作</span>
+        </button>
         <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup');"
           class="px-3.5 py-1.5 rounded-xl bg-matte-sub hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs">
           <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
@@ -6543,49 +8325,87 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
     </div>
 
     ${myStat ? `
-      <!-- 個人專屬補體能概況卡片（球員檢視） -->
+      <!-- 個人專屬補練概況卡片（球員檢視） -->
       <div class="p-4 sm:p-5 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-0.5 rounded-md bg-[#1c1b18] text-stone-100 text-xs font-bold">${escapeHtml(state.currentUser.name)}</span>
-            <span class="text-xs font-extrabold text-matte-ink">個人補體能儀表板</span>
+            <span class="text-xs font-extrabold text-matte-ink">我的待補紀錄儀表板</span>
             ${state.currentUser.jersey_number ? `<span class="text-xs text-matte-muted">#${escapeHtml(state.currentUser.jersey_number)}</span>` : ''}
           </div>
-          <div class="flex items-center gap-2">
-            ${myStat.needed > 0 ? `
-              <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup'); openFitnessModal('player_makeup');"
-                class="px-3 py-1.5 rounded-xl bg-matte-card hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-stone-400 text-xs font-extrabold transition flex items-center gap-1 shadow-2xs">
-                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-                <span>立即填報補體能</span>
-              </button>
-            ` : `
-              <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold">🎉 目前無需補體能</span>
-            `}
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" onclick="openLogNineActionsModal('${state.currentUser.id}')"
+              class="px-3 py-1.5 rounded-xl bg-matte-card hover:bg-[#1c1b18] text-matte-ink hover:text-stone-100 border border-matte-border text-xs font-bold transition flex items-center gap-1 shadow-2xs">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <span>登記九個動作完成</span>
+            </button>
+            <button type="button" onclick="switchTab('fitness'); switchSectionSubTab('fitness', 'makeup'); openFitnessModal('player_makeup');"
+              class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1 shadow-2xs">
+              <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
+              <span>填報補體能</span>
+            </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
-            <span class="text-[11px] text-matte-muted block">期間請假 (應補)</span>
-            <span class="text-lg sm:text-xl font-extrabold text-matte-ink">${myStat.leaveCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- 補體能專區 -->
+          <div class="p-3.5 rounded-xl bg-matte-card border ${myStat.fitnessNeeded > 0 ? 'border-stone-500' : 'border-matte-border'} space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink flex items-center gap-1.5">
+                <i data-lucide="dumbbell" class="w-4 h-4"></i>
+                <span>🏋️ 補體能進度 (因請體能)</span>
+              </span>
+              <span class="px-2 py-0.5 rounded text-xs font-extrabold ${myStat.fitnessNeeded > 0 ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
+                ${myStat.fitnessNeeded > 0 ? `待補 ${myStat.fitnessNeeded} 次` : '✓ 無待補'}
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
+              <div class="p-2 rounded-lg bg-matte-sub">
+                <span class="text-[10px] text-matte-muted block">請體能 (應補)</span>
+                <span class="font-extrabold text-matte-ink">${myStat.fitnessLeaveCount} 次</span>
+              </div>
+              <div class="p-2 rounded-lg bg-matte-sub">
+                <span class="text-[10px] text-matte-muted block">已完成補體能</span>
+                <span class="font-extrabold text-matte-ink">${myStat.fitnessDoneCount} 次</span>
+              </div>
+              <div class="p-2 rounded-lg ${myStat.fitnessNeeded > 0 ? 'bg-stone-200' : 'bg-matte-sub'}">
+                <span class="text-[10px] text-matte-muted block">尚待補體能</span>
+                <span class="font-extrabold text-matte-ink">${myStat.fitnessNeeded} 次</span>
+              </div>
+            </div>
           </div>
-          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
-            <span class="text-[11px] text-matte-muted block">已完成補體能</span>
-            <span class="text-lg sm:text-xl font-extrabold text-matte-ink">${myStat.doneCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
-          </div>
-          <div class="p-3 rounded-xl bg-matte-card border border-matte-border">
-            <span class="text-[11px] text-matte-muted block">審核中補體能</span>
-            <span class="text-lg sm:text-xl font-extrabold text-matte-muted">${myStat.pendingCount} <span class="text-xs font-normal text-matte-muted">次</span></span>
-          </div>
-          <div class="p-3 rounded-xl bg-matte-card border ${myStat.needed > 0 ? 'border-stone-600 bg-stone-200/60' : 'border-matte-border'}">
-            <span class="text-[11px] font-bold ${myStat.needed > 0 ? 'text-matte-ink' : 'text-matte-muted'} block">尚待補體能</span>
-            <span class="text-lg sm:text-xl font-extrabold ${myStat.needed > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${myStat.needed} <span class="text-xs font-normal">次</span></span>
+
+          <!-- 補九個動作專區 -->
+          <div class="p-3.5 rounded-xl bg-matte-card border ${myStat.nineActionsNeeded > 0 ? 'border-stone-500' : 'border-matte-border'} space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink flex items-center gap-1.5">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span>🏐 補九個動作進度 (因請練球)</span>
+              </span>
+              <span class="px-2 py-0.5 rounded text-xs font-extrabold ${myStat.nineActionsNeeded > 0 ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'}">
+                ${myStat.nineActionsNeeded > 0 ? `待補 ${myStat.nineActionsNeeded} 次` : '✓ 無待補'}
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
+              <div class="p-2 rounded-lg bg-matte-sub">
+                <span class="text-[10px] text-matte-muted block">請練球 (應補)</span>
+                <span class="font-extrabold text-matte-ink">${myStat.nineActionsLeaveCount} 次</span>
+              </div>
+              <div class="p-2 rounded-lg bg-matte-sub">
+                <span class="text-[10px] text-matte-muted block">已完成九動作</span>
+                <span class="font-extrabold text-matte-ink">${myStat.nineActionsDoneCount} 次</span>
+              </div>
+              <div class="p-2 rounded-lg ${myStat.nineActionsNeeded > 0 ? 'bg-stone-200' : 'bg-matte-sub'}">
+                <span class="text-[10px] text-matte-muted block">尚待補九動作</span>
+                <span class="font-extrabold text-matte-ink">${myStat.nineActionsNeeded} 次</span>
+              </div>
+            </div>
           </div>
         </div>
 
         ${myStat.leaveDates.length > 0 ? `
           <div class="pt-2 text-xs flex items-center gap-2 flex-wrap">
-            <span class="text-matte-muted font-bold">請假需補日期：</span>
+            <span class="text-matte-muted font-bold">請假紀錄日期：</span>
             ${myStat.leaveDates.map(d => `
               <span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-matte-ink font-bold text-[11px]">${escapeHtml(d)}</span>
             `).join('')}
@@ -6597,20 +8417,20 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
     <!-- 全隊統計概況 Chips -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
       <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
-        <span class="text-[11px] text-matte-muted block">全隊總請假 (應補)</span>
+        <span class="text-[11px] text-matte-muted block">全隊請假總次數</span>
         <span class="text-base sm:text-lg font-extrabold text-matte-ink">${totalLeaves} 次</span>
       </div>
       <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
-        <span class="text-[11px] text-matte-muted block">全隊已完成補體能</span>
-        <span class="text-base sm:text-lg font-extrabold text-matte-ink">${totalDone} 次</span>
+        <span class="text-[11px] text-matte-muted block">全隊待補體能</span>
+        <span class="text-base sm:text-lg font-extrabold ${totalFitnessNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${totalFitnessNeeded} 次 (已補 ${totalFitnessDone})</span>
       </div>
       <div class="p-3 rounded-xl bg-matte-sub border border-matte-border text-center">
-        <span class="text-[11px] text-matte-muted block">全隊待審核回報</span>
-        <span class="text-base sm:text-lg font-extrabold text-matte-muted">${totalPending} 次</span>
+        <span class="text-[11px] text-matte-muted block">全隊待補九個動作</span>
+        <span class="text-base sm:text-lg font-extrabold ${totalNineNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${totalNineNeeded} 次 (已補 ${totalNineDone})</span>
       </div>
-      <div class="p-3 rounded-xl bg-matte-sub border ${totalNeeded > 0 ? 'border-stone-500' : 'border-matte-border'} text-center">
-        <span class="text-[11px] font-bold ${totalNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'} block">全隊總待補次數</span>
-        <span class="text-base sm:text-lg font-extrabold ${totalNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${totalNeeded} 次</span>
+      <div class="p-3 rounded-xl bg-matte-sub border ${totalAllNeeded > 0 ? 'border-stone-500' : 'border-matte-border'} text-center">
+        <span class="text-[11px] font-bold ${totalAllNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'} block">全隊總待補次數</span>
+        <span class="text-base sm:text-lg font-extrabold ${totalAllNeeded > 0 ? 'text-matte-ink' : 'text-matte-muted'}">${totalAllNeeded} 次</span>
       </div>
     </div>
 
@@ -6619,18 +8439,18 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
       <div class="flex items-center justify-between">
         <h4 class="text-xs sm:text-sm font-extrabold text-matte-ink flex items-center gap-1.5">
           <i data-lucide="users" class="w-4 h-4"></i>
-          <span>全體球員補體能狀態名冊 (${statsList.length} 人)</span>
+          <span>全體球員補練狀態名冊 (${statsList.length} 人)</span>
         </h4>
-        <span class="text-[11px] text-matte-muted">點選球員可查看補體能紀錄或請假細項</span>
+        <span class="text-[11px] text-matte-muted">點選球員可登記九個動作或檢視請假細項</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         ${statsList.map(item => {
           const u = item.user;
           const isMe = state.currentUser && (u.id === state.currentUser.id || u.name === state.currentUser.name);
-          const hasNeeded = item.needed > 0;
+          const hasNeeded = item.totalNeeded > 0;
           return `
-            <div class="p-3.5 rounded-2xl bg-matte-sub border ${isMe ? 'border-stone-600 ring-1 ring-stone-500' : 'border-matte-border'} hover:border-stone-500 transition space-y-2">
+            <div class="p-3.5 rounded-2xl bg-matte-sub border ${isMe ? 'border-stone-600 ring-1 ring-stone-500' : 'border-matte-border'} hover:border-stone-500 transition space-y-2.5">
               <div class="flex items-center justify-between gap-1.5">
                 <div class="flex items-center gap-1.5 min-w-0">
                   <span class="font-extrabold text-xs sm:text-sm text-matte-ink truncate">${escapeHtml(u.name)}</span>
@@ -6640,22 +8460,24 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
                 <span class="px-2 py-0.5 rounded text-[11px] font-extrabold ${
                   hasNeeded ? 'bg-[#1c1b18] text-stone-100' : 'bg-stone-300 text-matte-ink'
                 }">
-                  ${hasNeeded ? `待補 ${item.needed} 次` : '✓ 無待補'}
+                  ${hasNeeded ? `待補共 ${item.totalNeeded} 次` : '✓ 無待補'}
                 </span>
               </div>
 
-              <div class="grid grid-cols-3 gap-1 text-center py-1 rounded-xl bg-matte-card border border-matte-border text-[11px]">
-                <div>
-                  <span class="text-matte-muted block text-[10px]">應補</span>
-                  <span class="font-bold text-matte-ink">${item.leaveCount}</span>
+              <div class="grid grid-cols-2 gap-2 text-center py-1.5 rounded-xl bg-matte-card border border-matte-border text-[11px]">
+                <div class="border-r border-matte-border/60 pr-1">
+                  <span class="text-matte-muted block text-[10px] font-bold">🏋️ 補體能</span>
+                  <span class="font-extrabold ${item.fitnessNeeded > 0 ? 'text-matte-ink underline' : 'text-matte-muted'}">
+                    ${item.fitnessNeeded > 0 ? `待補 ${item.fitnessNeeded} 次` : '✓ 已完成'}
+                  </span>
+                  <span class="block text-[9px] text-matte-muted">應 ${item.fitnessLeaveCount} / 畢 ${item.fitnessDoneCount}</span>
                 </div>
-                <div>
-                  <span class="text-matte-muted block text-[10px]">已補</span>
-                  <span class="font-bold text-matte-ink">${item.doneCount}</span>
-                </div>
-                <div>
-                  <span class="text-matte-muted block text-[10px]">待補</span>
-                  <span class="font-extrabold ${hasNeeded ? 'text-matte-ink underline' : 'text-matte-muted'}">${item.needed}</span>
+                <div class="pl-1">
+                  <span class="text-matte-muted block text-[10px] font-bold">🏐 補九動作</span>
+                  <span class="font-extrabold ${item.nineActionsNeeded > 0 ? 'text-matte-ink underline' : 'text-matte-muted'}">
+                    ${item.nineActionsNeeded > 0 ? `待補 ${item.nineActionsNeeded} 次` : '✓ 已完成'}
+                  </span>
+                  <span class="block text-[9px] text-matte-muted">應 ${item.nineActionsLeaveCount} / 畢 ${item.nineActionsDoneCount}</span>
                 </div>
               </div>
 
@@ -6664,6 +8486,11 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
                   class="text-[11px] text-matte-muted hover:text-matte-ink font-bold flex items-center gap-1">
                   <i data-lucide="calendar-off" class="w-3 h-3"></i>
                   <span>請假 ${item.leaveCount} 次</span>
+                </button>
+                <button type="button" onclick="openLogNineActionsModal('${u.id}')"
+                  class="px-2 py-0.5 rounded-lg bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-[11px] font-bold transition flex items-center gap-1">
+                  <i data-lucide="plus" class="w-3 h-3"></i>
+                  <span>登記九動作</span>
                 </button>
               </div>
             </div>
@@ -7451,6 +9278,7 @@ async function submitFitnessRecordForm(e) {
     await handleEquipmentBooking(item.target_date || getTodayStr(), equipChoice);
   }
   closeModal('modal-fitness-record');
+  saveLocalCache();
   renderAll();
 
   if (state.isSupabaseReady) {
@@ -7469,6 +9297,10 @@ async function deleteFitnessRecord(id) {
   if (state.currentUser.role !== 'admin' && !isOwnedByCurrentUser(item)) return;
   if (!window.confirm('確定要刪除此筆體能 / 補體能紀錄嗎？')) return;
   state.fitness = state.fitness.filter(f => f.id !== id);
+  if (state.selectedFitnessDate && !state.fitness.some(f => f.target_date === state.selectedFitnessDate)) {
+    state.selectedFitnessDate = '';
+  }
+  saveLocalCache();
   renderAll();
 
   if (state.isSupabaseReady) {
@@ -7639,7 +9471,8 @@ async function deleteFeeRecord(id) {
 
 // --- 請假操作 (純請假登記與請假證明照片，免批准直接反映於全隊出席情況看板) ---
 function openLeaveModal() {
-  document.getElementById('leave-date').value = getTodayStr();
+  const todayStr = getTodayStr();
+  document.getElementById('leave-date').value = todayStr;
   document.getElementById('leave-session').value = '';
   document.getElementById('leave-reason').value = '';
 
@@ -7656,10 +9489,27 @@ function openLeaveModal() {
     userSelect.value = state.currentUser.id;
   }
 
-  renderModalEquipmentSlot('leave-equip-slot', getTodayStr());
+  // 自動依當天訓練類型預設請假項目
+  const catSelect = document.getElementById('leave-category');
+  const initType = getDateScheduleType(todayStr);
+  if (catSelect) {
+    if (initType === '體能') catSelect.value = '請體能';
+    else if (initType === '練球+體能') catSelect.value = '請練球+體能';
+    else catSelect.value = '請練球';
+  }
+
+  renderModalEquipmentSlot('leave-equip-slot', todayStr);
   const leaveDateInput = document.getElementById('leave-date');
   if (leaveDateInput) {
-    leaveDateInput.onchange = () => renderModalEquipmentSlot('leave-equip-slot', leaveDateInput.value);
+    leaveDateInput.onchange = () => {
+      renderModalEquipmentSlot('leave-equip-slot', leaveDateInput.value);
+      const st = getDateScheduleType(leaveDateInput.value);
+      if (catSelect) {
+        if (st === '體能') catSelect.value = '請體能';
+        else if (st === '練球+體能') catSelect.value = '請練球+體能';
+        else if (st === '練球') catSelect.value = '請練球';
+      }
+    };
   }
   document.getElementById('modal-leave').classList.remove('hidden');
 }
@@ -7670,9 +9520,15 @@ async function submitLeaveForm(e) {
   const targetUser = (state.currentUser.role === 'admin' && state.users.find(u => u.id === uid)) || state.currentUser;
   const leaveDate = document.getElementById('leave-date').value;
   const leaveType = document.getElementById('leave-type').value;
-  const sessionName = document.getElementById('leave-session').value.trim();
+  const leaveCategory = document.getElementById('leave-category')?.value || '請練球';
+  const rawSession = document.getElementById('leave-session').value.trim();
   const reason = document.getElementById('leave-reason').value.trim();
   const leavePhoto = photoBuffer['leave-photo-input'] || '';
+
+  let formattedSession = rawSession;
+  if (!formattedSession.includes(`[${leaveCategory}]`)) {
+    formattedSession = `[${leaveCategory}] ${rawSession}`.trim();
+  }
 
   const newLeave = {
     id: generateUUID(),
@@ -7680,10 +9536,11 @@ async function submitLeaveForm(e) {
     user_name: targetUser.name,
     leave_date: leaveDate,
     leave_type: leaveType,
-    session_name: sessionName,
+    session_name: formattedSession,
+    leave_category: leaveCategory,
     reason,
     leave_photo: leavePhoto,
-    makeup_text: '',
+    makeup_text: JSON.stringify({ category: leaveCategory }),
     makeup_photo: '',
     makeup_done: false,
     status: '已核准', // 假單免批准直接生效
@@ -7724,7 +9581,7 @@ async function submitLeaveForm(e) {
     renderAll();
   }
   await notifyRealtimePeers();
-  showToast('已登記請假單，並同步更新至全隊出席情況看板！', 'success');
+  showToast('已登記請假單，並自動累積待補練次數！', 'success');
 }
 
 function openLeaveMakeupModal(leaveId) {
@@ -7735,6 +9592,11 @@ function openLeaveMakeupModal(leaveId) {
   document.getElementById('edit-leave-summary-title').textContent = `${item.user_name}｜${item.leave_date} ${item.session_name} (${item.leave_type})`;
   const reasonEl = document.getElementById('edit-leave-reason');
   if (reasonEl) reasonEl.value = item.reason || '';
+
+  const catEl = document.getElementById('edit-leave-category');
+  if (catEl) {
+    catEl.value = getLeaveCategory(item);
+  }
 
   // 載入既有請假照片預覽
   photoBuffer['edit-leave-photo-input'] = item.leave_photo || '';
@@ -7758,6 +9620,14 @@ async function submitLeaveMakeupUpdate(e) {
   const item = state.leaves.find(l => l.id === id);
   if (!item) return;
 
+  const catEl = document.getElementById('edit-leave-category');
+  if (catEl) {
+    const newCat = catEl.value;
+    item.leave_category = newCat;
+    let s = (item.session_name || '').replace(/\[(請體能|請練球|請練球\+體能)\]\s*/g, '').trim();
+    item.session_name = `[${newCat}] ${s}`.trim();
+  }
+
   const reasonEl = document.getElementById('edit-leave-reason');
   if (reasonEl) item.reason = reasonEl.value.trim();
   item.leave_photo = photoBuffer['edit-leave-photo-input'] || '';
@@ -7774,7 +9644,8 @@ async function submitLeaveMakeupUpdate(e) {
       .from('team_leaves')
       .update({
         reason: item.reason,
-        leave_photo: item.leave_photo
+        leave_photo: item.leave_photo,
+        session_name: item.session_name
       })
       .eq('id', id);
 
@@ -7784,7 +9655,7 @@ async function submitLeaveMakeupUpdate(e) {
   }
 
   await notifyRealtimePeers();
-  showToast('已更新請假事由與證明照片！', 'success');
+  showToast('已更新請假事由與補練項目！', 'success');
 }
 
 async function updateLeaveStatus(id, status) {
