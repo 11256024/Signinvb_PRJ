@@ -7551,7 +7551,33 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
         </div>
 
         ${isAdmin ? `
-          <!-- 管理者專用功能一：單日自訂人數調整 -->
+          <!-- 管理者專用功能一：指派／新增借還器材成員 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <i data-lucide="user-plus" class="w-4 h-4 text-matte-ink"></i>
+              <span class="font-extrabold text-matte-ink">管理者指派／新增成員：</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select id="admin-assign-equip-member"
+                onchange="state.adminAssignEquipMember = this.value"
+                class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
+                ${getPlayerUsers().map(u => `<option value="${u.id}" ${u.id === selectedAssignMemberId ? 'selected' : ''}>${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('')}
+              </select>
+              <select id="admin-assign-equip-role"
+                onchange="state.adminAssignEquipRole = this.value"
+                class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
+                <option value="借器材" ${selectedAssignRole === '借器材' ? 'selected' : ''}>📦 借器材 (+1次)</option>
+                <option value="還器材" ${selectedAssignRole === '還器材' ? 'selected' : ''}>📥 還器材 (+1次)</option>
+                <option value="借還器材" ${selectedAssignRole === '借還器材' ? 'selected' : ''}>🏐 一天練球借＋還 (+2次)</option>
+              </select>
+              <button type="button" onclick="adminAssignEquipmentMember('${activeDate}')"
+                class="px-3.5 py-1.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
+                + 新增至名單
+              </button>
+            </div>
+          </div>
+
+          <!-- 管理者專用功能二：單日自訂人數調整 -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
             <div class="flex items-center gap-1.5">
               <i data-lucide="sliders" class="w-4 h-4 text-matte-ink"></i>
@@ -7581,32 +7607,6 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
                   恢復固定排程
                 </button>
               ` : ''}
-            </div>
-          </div>
-
-          <!-- 管理者專用功能二：指派／新增借還器材成員 -->
-          <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-            <div class="flex items-center gap-1.5 shrink-0">
-              <i data-lucide="user-plus" class="w-4 h-4 text-matte-ink"></i>
-              <span class="font-extrabold text-matte-ink">管理者指派／新增成員：</span>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <select id="admin-assign-equip-member"
-                onchange="state.adminAssignEquipMember = this.value"
-                class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
-                ${getPlayerUsers().map(u => `<option value="${u.id}" ${u.id === selectedAssignMemberId ? 'selected' : ''}>${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('')}
-              </select>
-              <select id="admin-assign-equip-role"
-                onchange="state.adminAssignEquipRole = this.value"
-                class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
-                <option value="借器材" ${selectedAssignRole === '借器材' ? 'selected' : ''}>📦 借器材 (+1次)</option>
-                <option value="還器材" ${selectedAssignRole === '還器材' ? 'selected' : ''}>📥 還器材 (+1次)</option>
-                <option value="借還器材" ${selectedAssignRole === '借還器材' ? 'selected' : ''}>🏐 一天練球借＋還 (+2次)</option>
-              </select>
-              <button type="button" onclick="adminAssignEquipmentMember('${activeDate}')"
-                class="px-3.5 py-1.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
-                + 新增至名單
-              </button>
             </div>
           </div>
         ` : `
