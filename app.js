@@ -366,6 +366,8 @@ const state = {
   selectedAttendanceDate: '',
   selectedLeavePlayer: '',
   selectedLeaveDate: '', scheduleCalendarMonth: '', equipmentCalendarMonth: '', selectedEquipDate: '',
+  adminAssignEquipMember: '',
+  adminAssignEquipRole: '借器材',
   equipSectionsExpanded: { reminder: false, list: false, rules: false },
   isSupabaseReady: false,
   users: [],
@@ -2309,8 +2311,10 @@ async function fetchAllFromSupabase(showSpin = false) {
     if (usersErr) {
       state.isSupabaseReady = false;
       updateConnectionIndicators(false);
-      if (state.users.length === 0) loadLocalCache();
-      renderAll();
+      if (state.users.length === 0) {
+        loadLocalCache();
+        renderAll();
+      }
       return false;
     }
 
@@ -2382,7 +2386,9 @@ async function fetchAllFromSupabase(showSpin = false) {
 
     saveLocalCache();
     updateConnectionIndicators(true);
-    if (showSpin || newFingerprint !== prevFingerprint) {
+    const hasDataChanged = !state._lastSyncedFingerprint || state._lastSyncedFingerprint !== newFingerprint;
+    state._lastSyncedFingerprint = newFingerprint;
+    if (showSpin || hasDataChanged) {
       renderAll();
     }
     return true;
@@ -2390,8 +2396,10 @@ async function fetchAllFromSupabase(showSpin = false) {
     console.error('Supabase fetch error:', err);
     state.isSupabaseReady = false;
     updateConnectionIndicators(false);
-    if (state.users.length === 0) loadLocalCache();
-    renderAll();
+    if (state.users.length === 0) {
+      loadLocalCache();
+      renderAll();
+    }
     return false;
   } finally {
     if (showSpin) {
@@ -7220,6 +7228,19 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
   const isAdmin = state.currentUser.role === 'admin';
   const today = getTodayStr();
+
+  // 記憶管理者指派成員下拉選單當前選取值，避免重新渲染時跳回第一項
+  const activeAssignMemberEl = document.getElementById('admin-assign-equip-member');
+  if (activeAssignMemberEl && activeAssignMemberEl.value) {
+    state.adminAssignEquipMember = activeAssignMemberEl.value;
+  }
+  const activeAssignRoleEl = document.getElementById('admin-assign-equip-role');
+  if (activeAssignRoleEl && activeAssignRoleEl.value) {
+    state.adminAssignEquipRole = activeAssignRoleEl.value;
+  }
+  const selectedAssignMemberId = state.adminAssignEquipMember || '';
+  const selectedAssignRole = state.adminAssignEquipRole || '借器材';
+
   if (!state.equipmentCalendarMonth) {
     state.equipmentCalendarMonth = today.slice(0, 7);
   }
@@ -7565,21 +7586,28 @@ function renderEquipmentCalendarBoard(containerId = 'equipment-calendar-board') 
 
           <!-- 管理者專用功能二：指派／新增借還器材成員 -->
           <div class="p-3 rounded-xl bg-matte-card border border-matte-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 shrink-0">
               <i data-lucide="user-plus" class="w-4 h-4 text-matte-ink"></i>
-              <span class="font-extrabold text-matte-ink">管理者指派／新增成員：</span>
+              <span class="font-bold text-matte-ink">管理者指派／新增成員：</span>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <select id="admin-assign-equip-member" class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
-                ${getPlayerUsers().map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('')}
+              <select id="admin-assign-equip-member"
+                onchange="state.adminAssignEquipMember = this.value"
+                style="font-size: 11px;"
+                class="px-2 py-1 bg-matte-sub border border-matte-border rounded-lg font-medium text-[11px] sm:text-xs text-matte-ink focus:outline-none focus:ring-1 focus:ring-stone-600">
+                ${getPlayerUsers().map(u => `<option value="${u.id}" ${u.id === selectedAssignMemberId ? 'selected' : ''}>${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('')}
               </select>
-              <select id="admin-assign-equip-role" class="px-2.5 py-1.5 bg-matte-sub border border-matte-border rounded-lg font-bold text-xs text-matte-ink">
-                <option value="借器材">📦 借器材 (+1次)</option>
-                <option value="還器材">📥 還器材 (+1次)</option>
-                <option value="借還器材">🏐 一天練球借＋還 (+2次)</option>
+              <select id="admin-assign-equip-role"
+                onchange="state.adminAssignEquipRole = this.value"
+                style="font-size: 11px;"
+                class="px-2 py-1 bg-matte-sub border border-matte-border rounded-lg font-medium text-[11px] sm:text-xs text-matte-ink focus:outline-none focus:ring-1 focus:ring-stone-600">
+                <option value="借器材" ${selectedAssignRole === '借器材' ? 'selected' : ''}>📦 借器材 (+1次)</option>
+                <option value="還器材" ${selectedAssignRole === '還器材' ? 'selected' : ''}>📥 還器材 (+1次)</option>
+                <option value="借還器材" ${selectedAssignRole === '借還器材' ? 'selected' : ''}>🏐 一天練球借＋還 (+2次)</option>
               </select>
               <button type="button" onclick="adminAssignEquipmentMember('${activeDate}')"
-                class="px-3.5 py-1.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-xs shadow-2xs">
+                style="font-size: 11px;"
+                class="px-2.5 py-1 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-[11px] sm:text-xs shadow-2xs">
                 + 新增至名單
               </button>
             </div>
