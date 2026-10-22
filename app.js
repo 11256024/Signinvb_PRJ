@@ -3373,17 +3373,25 @@ function isMakeupFitnessRecord(f) {
 }
 
 function getMakeupStatsForPlayer(user, ay, pk) {
-  if (!user) return { leaveCount: 0, doneCount: 0, pendingCount: 0, needed: 0, leaveDates: [] };
+  if (!user) return { leaveCount: 0, fitnessLeaveCount: 0, doneCount: 0, pendingCount: 0, needed: 0, leaveDates: [] };
   const matchUser = r => r.user_id === user.id || r.user_name === user.name;
   const leaves = getRealLeaves().filter(l => matchUser(l) && isDateInAcademicPeriod(l.leave_date, ay, pk));
+  // 只有體能練習需要填表單與有未完成/補體能問題；練球只計算出席跟請假，未請假就是算出席
+  const fitnessLeaves = leaves.filter(l => {
+    const st = getDateScheduleType(l.leave_date);
+    if (st === '練球') return false;
+    if (st === '體能' || st === '練球+體能') return true;
+    return (l.session_name || '').includes('體能');
+  });
   const makeups = state.fitness.filter(f => matchUser(f) && isMakeupFitnessRecord(f) && isDateInAcademicPeriod(f.target_date, ay, pk));
   const doneCount = makeups.filter(f => f.is_completed).length;
   const pendingCount = makeups.filter(f => !f.is_completed).length;
   return {
     leaveCount: leaves.length,
+    fitnessLeaveCount: fitnessLeaves.length,
     doneCount,
     pendingCount,
-    needed: Math.max(0, leaves.length - doneCount),
+    needed: Math.max(0, fitnessLeaves.length - doneCount),
     leaveDates: leaves.map(l => l.leave_date).sort()
   };
 }
@@ -5196,7 +5204,7 @@ async function applyBatchHolidayRange() {
   showToast(`已將 ${startStr} ～ ${endStr}（共 ${targetDates.length} 天）設為「🏖️ 放假 / 暫停練習」！`, 'success');
 }
 
-// 計算指定日期全隊體能/補體能進度與「請假 / 已補 / 未補」名單（涵蓋全隊所有球員）
+// 計算指定日期全隊體能/練球進度與「請假 / 出席 / 體能已完成 / 未完成」名單（涵蓋全隊所有球員）
 function getDateFitnessRosterBreakdown(dateStr) {
   const playerUsers = getPlayerUsers();
   const allRosterNames = playerUsers.map(u => u.name).filter(Boolean);
@@ -5210,57 +5218,67 @@ function getDateFitnessRosterBreakdown(dateStr) {
 
   const fitnessOnDate = state.fitness.filter(f => f.target_date === dateStr);
 
-  // 已補 / 已完成名單：當日有完成體能紀錄，或請假單標記已補體能
+  // 核心規則：只有體能練習需要填表單以及有未完成問題，練球只計算出席跟請假，未請假就是算出席！
+  const hasFitnessTask = schedType === '體能' || schedType === '練球+體能' || fitnessOnDate.some(f => !isMakeupFitnessRecord(f));
+  const hasBallPractice = schedType === '練球' || schedType === '練球+體能' || (schedType === 'none' && leavesOnDate.length > 0 && !hasFitnessTask);
+  const isPureBallPractice = hasBallPractice && !hasFitnessTask;
+
+  // 練球出席名單：未請假就是算出席！
+  const presentNames = allRosterNames.filter(name => !leaveSet.has(name));
+  const attendanceCount = presentNames.length;
+  const attendanceTotal = allRosterNames.length;
+  const attendancePct = attendanceTotal > 0 ? Math.round((attendanceCount / attendanceTotal) * 100) : 100;
+
+  // 體能填報狀況（只有體能練習需要填表單以及有未完成問題）：
   const doneNamesSet = new Set();
-  fitnessOnDate.forEach(f => {
-    if (f.is_completed && f.user_name) doneNamesSet.add(f.user_name);
-  });
-  leavesOnDate.forEach(l => {
-    if (l.makeup_done && l.user_name) doneNamesSet.add(l.user_name);
-  });
-  const doneNames = Array.from(doneNamesSet);
-
-  // 判斷該日期是否為訓練/體能日或有體能/請假紀錄（放假日若無體能紀錄則不計為應做體能日）
-  const hasActivity = (schedType !== 'none' && schedType !== '放假') || fitnessOnDate.length > 0 || leavesOnDate.length > 0;
-
-  // 未補 / 未完成名單：涵蓋全隊名單！只要不在「已補/已完成名單」內（包含未請假且尚未在已完成名單內的隊員、以及已請假未補體能的隊員），皆列入未補/未完成名單
   const pendingNamesSet = new Set();
-  if (hasActivity) {
+
+  if (hasFitnessTask) {
+    fitnessOnDate.forEach(f => {
+      if (f.is_completed && f.user_name) doneNamesSet.add(f.user_name);
+    });
+    leavesOnDate.forEach(l => {
+      if (l.makeup_done && l.user_name) doneNamesSet.add(l.user_name);
+    });
+
     allRosterNames.forEach(name => {
       if (!doneNamesSet.has(name)) {
         pendingNamesSet.add(name);
       }
     });
+    fitnessOnDate.forEach(f => {
+      if (!f.is_completed && f.user_name && !doneNamesSet.has(f.user_name)) {
+        pendingNamesSet.add(f.user_name);
+      }
+    });
   }
-  // 若當日有非在籍歷史球員的未完成紀錄，也一併納入
-  fitnessOnDate.forEach(f => {
-    if (!f.is_completed && f.user_name && !doneNamesSet.has(f.user_name)) {
-      pendingNamesSet.add(f.user_name);
-    }
-  });
-  leaveNames.forEach(name => {
-    if (!doneNamesSet.has(name)) {
-      pendingNamesSet.add(name);
-    }
-  });
 
+  const doneNames = Array.from(doneNamesSet);
   const pendingNames = Array.from(pendingNamesSet);
-  const totalCount = hasActivity ? (doneNames.length + pendingNames.length) : 0;
+  const totalCount = hasFitnessTask ? (doneNames.length + pendingNames.length) : 0;
   const pct = totalCount > 0 ? Math.round((doneNames.length / totalCount) * 100) : 0;
+  const hasActivity = (schedType !== 'none' && schedType !== '放假') || fitnessOnDate.length > 0 || leavesOnDate.length > 0;
 
   return {
     hasActivity,
     schedType,
     schedDetails,
+    hasBallPractice,
+    hasFitnessTask,
+    isPureBallPractice,
     leavesOnDate,
     leaveNames,
     leaveSet,
+    presentNames,
     fitnessOnDate,
     doneNames,
     doneSet: doneNamesSet,
     pendingNames,
     totalCount,
     pct,
+    attendanceCount,
+    attendanceTotal,
+    attendancePct,
     rosterSet
   };
 }
@@ -5324,14 +5342,31 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
     }
 
     let progressHtml = '';
-    if (schedType === '體能' || schedType === '練球+體能' || fitnessOnDay.length > 0) {
+    if (dayInfo.isPureBallPractice) {
+      // 純練球：只計算出席跟請假，未請假就是算出席！
+      const presentCnt = dayInfo.attendanceCount;
+      const totalCnt = dayInfo.attendanceTotal;
+      const attPct = dayInfo.attendancePct;
+      progressHtml = `
+        <div class="space-y-0.5 mt-0.5">
+          <div class="flex items-center justify-between text-[10px] font-extrabold text-matte-ink">
+            <span>出席 ${presentCnt}/${totalCnt}</span>
+            <span>${attPct}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-stone-300 rounded-full overflow-hidden">
+            <div class="h-full bg-[#1c1b18]" style="width:${attPct}%"></div>
+          </div>
+        </div>
+      `;
+    } else if (dayInfo.hasFitnessTask) {
+      // 體能 或 練球+體能：顯示體能填報完成度
       const doneCnt = dayInfo.doneNames.length;
       const totalCnt = dayInfo.totalCount;
       const pct = dayInfo.pct;
       progressHtml = `
         <div class="space-y-0.5 mt-0.5">
           <div class="flex items-center justify-between text-[10px] font-extrabold text-matte-ink">
-            <span>${doneCnt}/${totalCnt} 完成</span>
+            <span>體能 ${doneCnt}/${totalCnt}</span>
             <span>${pct}%</span>
           </div>
           <div class="w-full h-1.5 bg-stone-300 rounded-full overflow-hidden">
@@ -5345,12 +5380,16 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
     if (!isAdmin && schedType !== 'none' && schedType !== '放假') {
       if ((schedType === '練球' || schedType === '練球+體能') && myLeave) {
         userReminderHtml += `<div class="text-[10px] font-bold text-stone-600 truncate">○ 已請假</div>`;
+      } else if (schedType === '練球') {
+        userReminderHtml += `<div class="text-[10px] font-bold text-stone-700 truncate">● 正常出席</div>`;
       }
       if (schedType === '體能' || schedType === '練球+體能') {
         userReminderHtml += myFit && myFit.is_completed
           ? `<div class="text-[10px] font-bold text-matte-ink truncate">● 體能已練</div>`
-          : `<div class="text-[10px] font-extrabold text-matte-ink underline truncate">! 記得練體能</div>`;
+          : `<div class="text-[10px] font-extrabold text-matte-ink underline truncate">! 需填體能表單</div>`;
       }
+    } else if (isAdmin && schedType === '練球') {
+      userReminderHtml = `<div class="text-[10px] font-bold text-matte-muted truncate">出席 ${dayInfo.attendanceCount}/${dayInfo.attendanceTotal}</div>`;
     } else if (isAdmin && realLeavesOnDay.length > 0) {
       userReminderHtml = `<div class="text-[10px] font-bold text-matte-muted truncate">請假 ${realLeavesOnDay.length} 人</div>`;
     }
@@ -5560,96 +5599,266 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
             <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
               class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
               <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
-              <span>請假 (${activeDate.slice(5)})</span>
+              <span>我要請假 (${activeDate.slice(5)})</span>
             </button>
-            <button type="button" onclick="goToFitnessForDate('${activeDate}')"
-              class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
-              <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
-              <span>填寫體能</span>
-            </button>
+            ${activeBreakdown.hasFitnessTask ? `
+              <button type="button" onclick="goToFitnessForDate('${activeDate}')"
+                class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
+                <span>填寫體能表單</span>
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
     `}
 
-    <!-- 點擊對應日期：顯示當日完成進度、請假名單、已補/已完成名單、未補/未完成名單 -->
-    <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能完成進度與請假 / 已補 / 未補名單</span>
-        </div>
-        ${activeTotalCount > 0 ? `
+    <!-- 點擊對應日期看板：只有體能練習需要填表單以及有未完成問題，練球只計算出席跟請假，未請假就是算出席 -->
+    ${activeBreakdown.isPureBallPractice ? `
+      <!-- 純練球：只計算出席跟請假，未請假就是算出席，無須填表單，無未完成問題 -->
+      <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 練球出席狀況看板</span>
+            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+              未請假即算出席・練球無須填表單
+            </span>
+          </div>
           <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
-            ${activeDoneNames.length} / ${activeTotalCount} 完成 (${activePct}%)
+            當日出席率 ${activeBreakdown.attendancePct}% (${activeBreakdown.presentNames.length} / ${activeBreakdown.attendanceTotal} 人出席)
           </span>
-        ` : `
-          <span class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold shrink-0">
-            尚無當日體能紀錄
-          </span>
-        `}
-      </div>
+        </div>
 
-      ${activeTotalCount > 0 ? `
+        <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
+          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activeBreakdown.attendancePct}%"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <!-- 1. 當天出席名單（未請假就是算出席） -->
+          <div class="p-3.5 rounded-xl bg-matte-card border border-matte-border space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink flex items-center gap-1.5">
+                <span>● 當天出席名單 (${activeBreakdown.presentNames.length} 人)</span>
+              </span>
+              <span class="text-[11px] text-matte-muted">未請假視為正常出席</span>
+            </div>
+            ${activeBreakdown.presentNames.length === 0 ? `
+              <p class="text-xs text-matte-muted py-2">無人出席</p>
+            ` : `
+              <div class="flex flex-wrap gap-1.5">
+                ${activeBreakdown.presentNames.map(name => {
+                  const isMe = state.currentUser && state.currentUser.name === name;
+                  return `
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                      isMe
+                        ? 'bg-[#1c1b18] text-stone-100 ring-2 ring-stone-400'
+                        : 'bg-matte-sub text-matte-ink border border-matte-border'
+                    }">
+                      <span>●</span>
+                      <span>${escapeHtml(name)}</span>
+                      <span class="text-[10px] ${isMe ? 'text-stone-300' : 'text-matte-muted'} font-normal">(出席)</span>
+                    </span>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- 2. 當天請假名單 -->
+          <div class="p-3.5 rounded-xl bg-matte-card border border-matte-border space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">○ 當天請假名單 (${activeLeaveNames.length} 人)</span>
+              <span class="text-[11px] text-matte-muted">請假登記</span>
+            </div>
+            ${activeLeaveNames.length === 0 ? `
+              <div class="py-3 text-center text-xs font-bold text-matte-ink">
+                🎉 全隊全員出席，無人請假！
+              </div>
+            ` : `
+              <div class="flex flex-wrap gap-1.5">
+                ${activeLeaveNames.map(name => {
+                  const lv = activeLeaves.find(l => l.user_name === name);
+                  const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
+                  return `
+                    <span class="px-2.5 py-1 rounded-lg bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink flex items-center gap-1">
+                      <span>○</span>
+                      <span>${escapeHtml(name)}</span>
+                      <span class="text-[10px] text-matte-muted">${escapeHtml(typeStr)}</span>
+                    </span>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    ` : activeBreakdown.schedType === '練球+體能' ? `
+      <!-- 練球+體能：練球只計出席/請假（未請假算出席），體能練習需填表單 -->
+      <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 練球出席與體能填報狀況</span>
+            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+              練球未請假即算出席 ｜ 體能練習需填表單
+            </span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
+              練球出席率 ${activeBreakdown.attendancePct}% (${activeBreakdown.presentNames.length}/${activeBreakdown.attendanceTotal})
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-stone-700 text-stone-100 text-xs font-bold shrink-0">
+              體能完成 ${activeDoneNames.length}/${activeTotalCount} (${activePct}%)
+            </span>
+          </div>
+        </div>
+
         <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
           <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activePct}%"></div>
         </div>
-      ` : ''}
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-        <!-- 1. 當天請假名單 -->
-        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-extrabold text-matte-ink">📅 當天請假名單 (${activeLeaveNames.length} 人)</span>
+        <!-- 練球出席區塊 -->
+        <div class="p-3.5 rounded-xl bg-matte-card border border-matte-border space-y-2">
+          <div class="flex items-center justify-between flex-wrap gap-1">
+            <span class="text-xs font-extrabold text-matte-ink">🏐 練球出席狀況：出席 ${activeBreakdown.presentNames.length} 人（未請假即算出席）／ 請假 ${activeLeaveNames.length} 人</span>
           </div>
-          ${activeLeaveNames.length === 0 ? `
-            <p class="text-xs text-matte-muted">無人請假</p>
-          ` : `
-            <div class="flex flex-wrap gap-1">
-              ${activeLeaveNames.map(name => {
-                const lv = activeLeaves.find(l => l.user_name === name);
-                const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
-                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${escapeHtml(typeStr)}</button>`;
-              }).join('')}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div class="p-2.5 rounded-lg bg-matte-sub border border-matte-border space-y-1">
+              <span class="text-[11px] font-bold text-matte-ink block">● 出席球員 (${activeBreakdown.presentNames.length}人)：</span>
+              <div class="flex flex-wrap gap-1">
+                ${activeBreakdown.presentNames.map(name => `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold">● ${escapeHtml(name)}</span>`).join('')}
+              </div>
             </div>
-          `}
+            <div class="p-2.5 rounded-lg bg-matte-sub border border-matte-border space-y-1">
+              <span class="text-[11px] font-bold text-matte-ink block">○ 請假球員 (${activeLeaveNames.length}人)：</span>
+              ${activeLeaveNames.length === 0 ? `<p class="text-xs text-matte-muted">無人請假</p>` : `
+                <div class="flex flex-wrap gap-1">
+                  ${activeLeaveNames.map(name => {
+                    const lv = activeLeaves.find(l => l.user_name === name);
+                    const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
+                    return `<span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">○ ${escapeHtml(name)}${escapeHtml(typeStr)}</span>`;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          </div>
         </div>
 
-        <!-- 2. 已補 / 已完成名單 -->
-        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-extrabold text-matte-ink">● 已補 / 已完成名單 (${activeDoneNames.length} 人)</span>
-          </div>
-          ${activeDoneNames.length === 0 ? `
-            <p class="text-xs text-matte-muted">尚無人完成</p>
-          ` : `
-            <div class="flex flex-wrap gap-1">
-              ${activeDoneNames.map(name => {
-                const rec = activeFitness.find(f => f.user_name === name && f.is_completed);
-                const isMakeup = rec && ((rec.task_name || '').includes('補體能') || (rec.note || '').includes('補體能') || activeLeaveSet.has(name));
-                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}${isMakeup ? ' (已補)' : ''}</button>`;
-              }).join('')}
+        <!-- 體能填報區塊 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">● 體能已完成名單 (${activeDoneNames.length} 人)</span>
             </div>
-          `}
-        </div>
+            ${activeDoneNames.length === 0 ? `<p class="text-xs text-matte-muted">尚無人填報完成</p>` : `
+              <div class="flex flex-wrap gap-1">
+                ${activeDoneNames.map(name => `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}</button>`).join('')}
+              </div>
+            `}
+          </div>
 
-        <!-- 3. 未補 / 未完成名單 -->
-        <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-extrabold text-matte-ink">○ 未補 / 未完成名單 (${activePendingNames.length} 人)</span>
-          </div>
-          ${activePendingNames.length === 0 ? `
-            <p class="text-xs text-matte-muted">${activeTotalCount > 0 ? '● 全員皆已完成 / 已補齊' : '無待補名單'}</p>
-          ` : `
-            <div class="flex flex-wrap gap-1">
-              ${activePendingNames.map(name => {
-                const isLv = activeLeaveSet.has(name);
-                return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${isLv ? ' (請假未補)' : ' (未完)'}</button>`;
-              }).join('')}
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">○ 體能未完成名單 (${activePendingNames.length} 人，需填表單)</span>
             </div>
-          `}
+            ${activePendingNames.length === 0 ? `<p class="text-xs text-matte-muted">● 全員體能皆已填報完成</p>` : `
+              <div class="flex flex-wrap gap-1">
+                ${activePendingNames.map(name => `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)} (待填)</button>`).join('')}
+              </div>
+            `}
+          </div>
         </div>
       </div>
-    </div>
+    ` : activeBreakdown.hasFitnessTask ? `
+      <!-- 純體能練習：只有體能練習需要填表單以及有未完成問題 -->
+      <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能填報進度與完成名單</span>
+            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+              體能練習需填表單・未填算未完成
+            </span>
+          </div>
+          ${activeTotalCount > 0 ? `
+            <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
+              ${activeDoneNames.length} / ${activeTotalCount} 完成 (${activePct}%)
+            </span>
+          ` : `
+            <span class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold shrink-0">
+              尚無當日體能紀錄
+            </span>
+          `}
+        </div>
+
+        ${activeTotalCount > 0 ? `
+          <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
+            <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activePct}%"></div>
+          </div>
+        ` : ''}
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+          <!-- 1. 當天請假名單 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">📅 當天請假名單 (${activeLeaveNames.length} 人)</span>
+            </div>
+            ${activeLeaveNames.length === 0 ? `
+              <p class="text-xs text-matte-muted">無人請假</p>
+            ` : `
+              <div class="flex flex-wrap gap-1">
+                ${activeLeaveNames.map(name => {
+                  const lv = activeLeaves.find(l => l.user_name === name);
+                  const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
+                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${escapeHtml(typeStr)}</button>`;
+                }).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- 2. 已補 / 已完成名單 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">● 已補 / 已完成名單 (${activeDoneNames.length} 人)</span>
+            </div>
+            ${activeDoneNames.length === 0 ? `
+              <p class="text-xs text-matte-muted">尚無人完成</p>
+            ` : `
+              <div class="flex flex-wrap gap-1">
+                ${activeDoneNames.map(name => {
+                  const rec = activeFitness.find(f => f.user_name === name && f.is_completed);
+                  const isMakeup = rec && ((rec.task_name || '').includes('補體能') || (rec.note || '').includes('補體能') || activeLeaveSet.has(name));
+                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition">${escapeHtml(name)}${isMakeup ? ' (已補)' : ''}</button>`;
+                }).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- 3. 未補 / 未完成名單 -->
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-matte-ink">○ 未補 / 未完成名單 (${activePendingNames.length} 人)</span>
+            </div>
+            ${activePendingNames.length === 0 ? `
+              <p class="text-xs text-matte-muted">${activeTotalCount > 0 ? '● 全員皆已完成 / 已補齊' : '無待補名單'}</p>
+            ` : `
+              <div class="flex flex-wrap gap-1">
+                ${activePendingNames.map(name => {
+                  const isLv = activeLeaveSet.has(name);
+                  return `<button type="button" onclick="openPlayerFitnessDetail('${escapeJsStr(name)}', '${escapeJsStr(activeDate)}')" class="px-2 py-0.5 rounded-lg bg-stone-200 hover:bg-stone-300 border border-stone-400 text-xs font-bold text-matte-ink transition">${escapeHtml(name)}${isLv ? ' (請假未補)' : ' (未完)'}</button>`;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    ` : `
+      <!-- 放假或無練習排程 -->
+      <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border text-center space-y-1.5">
+        <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+          ${activeSchedType === '放假' ? `🏖️ ${escapeHtml(activeDate)} 放假停練，當日無須出席或填寫體能表單` : `📅 ${escapeHtml(activeDate)} 當日尚無排定練習日程`}
+        </span>
+        ${activeSchedDetails.note ? `<p class="text-xs text-matte-muted">${escapeHtml(activeSchedDetails.note)}</p>` : ''}
+      </div>
+    `}
   `;
 }
 
