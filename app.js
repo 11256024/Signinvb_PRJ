@@ -6340,9 +6340,15 @@ function getDateFitnessRosterBreakdown(dateStr) {
 
   const doneNames = presentDoneMembers.map(m => m.name);
   const pendingNames = presentIncompleteMembers.map(m => m.name);
+
+  // 核心規則：體能進度條只計算「有出席的人」的完成進度（請假需補整組者不列入當日出席體能分母）
+  const presentTotal = presentDoneMembers.length + presentIncompleteMembers.length;
+  const presentDoneCount = presentDoneMembers.length;
+  const presentFitnessPct = presentTotal > 0 ? Math.round((presentDoneCount / presentTotal) * 100) : 0;
+
   const doneTotal = presentDoneMembers.length + leaveMembers.filter(m => m.isDone).length;
   const totalCount = hasFitnessTask ? playerUsers.length : 0;
-  const pct = totalCount > 0 ? Math.round((doneTotal / totalCount) * 100) : 0;
+  const pct = presentFitnessPct;
   const hasActivity = (schedType !== 'none' && schedType !== '放假') || fitnessOnDate.length > 0 || leavesOnDate.length > 0;
 
   return {
@@ -6364,6 +6370,9 @@ function getDateFitnessRosterBreakdown(dateStr) {
     doneSet: new Set(doneNames),
     pendingNames,
     totalCount,
+    presentTotal,
+    presentDoneCount,
+    presentFitnessPct,
     pct,
     attendanceCount,
     attendanceTotal,
@@ -6448,10 +6457,10 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         </div>
       `;
     } else if (dayInfo.hasFitnessTask) {
-      // 體能 或 練球+體能：顯示體能填報完成度
-      const doneCnt = dayInfo.doneNames.length;
-      const totalCnt = dayInfo.totalCount;
-      const pct = dayInfo.pct;
+      // 體能 或 練球+體能：顯示有出席的人的體能完成進度
+      const doneCnt = dayInfo.presentDoneCount;
+      const totalCnt = dayInfo.presentTotal;
+      const pct = dayInfo.presentFitnessPct;
       progressHtml = `
         <div class="space-y-0.5 mt-0.5">
           <div class="flex items-center justify-between text-[10px] font-extrabold text-matte-ink">
@@ -6802,13 +6811,13 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
               練球出席率 ${activeBreakdown.attendancePct}% (${activeBreakdown.presentNames.length}/${activeBreakdown.attendanceTotal})
             </span>
             <span class="px-2.5 py-1 rounded-lg bg-stone-700 text-stone-100 text-xs font-bold shrink-0">
-              體能完成 ${activeDoneNames.length}/${activeTotalCount} (${activePct}%)
+              體能完成 ${activeBreakdown.presentDoneCount}/${activeBreakdown.presentTotal} (${activeBreakdown.presentFitnessPct}%)
             </span>
           </div>
         </div>
 
         <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
-          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activePct}%"></div>
+          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activeBreakdown.presentFitnessPct}%"></div>
         </div>
 
         <!-- 練球出席區塊 -->
@@ -6920,20 +6929,20 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
               請假需補整組 ｜ 有出席需完成各項目（沒填寫即是未完成）
             </span>
           </div>
-          ${activeTotalCount > 0 ? `
+          ${activeBreakdown.presentTotal > 0 ? `
             <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
-              ${activePresentDoneMembers.length} 人完成 ｜ ${activePresentIncompleteMembers.length} 人待補/未完 ｜ ${activeLeaveMembers.length} 人請假
+              出席完成 ${activeBreakdown.presentDoneMembers.length}/${activeBreakdown.presentTotal} 人 (${activeBreakdown.presentFitnessPct}%) ｜ ${activeBreakdown.presentIncompleteMembers.length} 人未完 ｜ ${activeBreakdown.leaveMembers.length} 人請假
             </span>
           ` : `
             <span class="px-2.5 py-1 rounded-lg bg-stone-300 text-matte-ink text-xs font-bold shrink-0">
-              尚無當日體能紀錄
+              ${activeBreakdown.leaveMembers.length > 0 ? `全員請假 (${activeBreakdown.leaveMembers.length} 人請假需補整組)` : '尚無當日體能紀錄'}
             </span>
           `}
         </div>
 
-        ${activeTotalCount > 0 ? `
+        ${activeBreakdown.presentTotal > 0 ? `
           <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
-            <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activePct}%"></div>
+            <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activeBreakdown.presentFitnessPct}%"></div>
           </div>
         ` : ''}
 
