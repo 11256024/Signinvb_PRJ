@@ -8382,19 +8382,39 @@ function renderTeamAttendanceBoard() {
           <div class="space-y-2">
             ${absentPlayers.map(item => {
               const isMe = state.currentUser && item.user.name === state.currentUser.name;
-              return item.leaves.map(l => `
-                <div class="p-2.5 rounded-xl bg-matte-card border ${isMe ? 'border-stone-600' : 'border-matte-border'} flex items-center justify-between gap-2">
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <span class="font-extrabold text-xs text-matte-ink">○ ${escapeHtml(item.user.name)}</span>
-                      <span class="px-1.5 py-0.5 rounded bg-stone-300 text-matte-ink text-[10px] font-bold">${escapeHtml(l.leave_type)}</span>
-                      <span class="text-xs text-matte-muted truncate">${escapeHtml(l.session_name)}</span>
+              return item.leaves.map(l => {
+                const canManage = (isAdmin || isMe || isOwnedByCurrentUser(l));
+                return `
+                  <div class="p-2.5 rounded-xl bg-matte-card border ${isMe ? 'border-stone-600' : 'border-matte-border'} flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-extrabold text-xs text-matte-ink">○ ${escapeHtml(item.user.name)}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-stone-300 text-matte-ink text-[10px] font-bold">${escapeHtml(l.leave_type)}</span>
+                        <span class="text-xs text-matte-muted truncate">${escapeHtml(l.session_name)}</span>
+                      </div>
+                      <p class="text-[11px] text-matte-muted mt-0.5 truncate">事由：${escapeHtml(l.reason || '無')}</p>
                     </div>
-                    <p class="text-[11px] text-matte-muted mt-0.5 truncate">事由：${escapeHtml(l.reason || '無')}</p>
+                    ${canManage ? `
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="openLeaveMakeupModal('${l.id}')"
+                          class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                          title="編輯請假">
+                          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                          <span>編輯</span>
+                        </button>
+                        <button type="button" onclick="cancelLeaveRecord('${l.id}')"
+                          class="px-2.5 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 hover:text-red-700 border border-stone-400 text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                          title="刪除請假">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                          <span>刪除</span>
+                        </button>
+                      </div>
+                    ` : `
+                      <span class="px-2 py-0.5 rounded bg-stone-200 text-matte-ink border border-stone-400 text-[11px] font-bold shrink-0">請假</span>
+                    `}
                   </div>
-                  <span class="px-2 py-0.5 rounded bg-stone-200 text-matte-ink border border-stone-400 text-[11px] font-bold shrink-0">請假</span>
-                </div>
-              `).join('');
+                `;
+              }).join('');
             }).join('')}
           </div>
         `}
@@ -8830,22 +8850,25 @@ function renderLeavesSection() {
           </div>
 
           <div class="flex items-center gap-2 shrink-0 flex-wrap">
-            ${isOwner && !isAdmin ? `
+            ${(isAdmin || isOwner) ? `
               <button type="button" onclick="openLeaveMakeupModal('${l.id}')"
-                class="px-3 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
-                <i data-lucide="image" class="w-3.5 h-3.5"></i>
-                <span>編輯事由 / 借還器材</span>
+                class="px-3 py-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                title="編輯請假單">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                <span>編輯請假</span>
               </button>
-              <button type="button" onclick="switchTab('fitness'); openFitnessModal('player_makeup')"
-                class="px-3 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
-                <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
-                <span>前往補體能</span>
+              <button type="button" onclick="cancelLeaveRecord('${l.id}')"
+                class="px-3 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 hover:text-red-700 border border-stone-400 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                title="刪除請假單">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>刪除請假</span>
               </button>
             ` : ''}
-            ${(isAdmin || isOwner) ? `
-              <button type="button" onclick="deleteLeaveRecord('${l.id}')" title="刪除請假單"
-                class="p-2 rounded-xl bg-matte-sub hover:bg-stone-300 text-matte-muted hover:text-matte-ink border border-matte-border transition">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            ${isOwner && !isAdmin ? `
+              <button type="button" onclick="switchTab('fitness'); openFitnessModal('player_makeup')"
+                class="px-3 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="dumbbell" class="w-4 h-4"></i>
+                <span>前往補體能</span>
               </button>
             ` : ''}
           </div>
@@ -9778,6 +9801,8 @@ function openLeaveMakeupModal(leaveId) {
 
   document.getElementById('edit-leave-id').value = item.id;
   document.getElementById('edit-leave-summary-title').textContent = `${item.user_name}｜${item.leave_date} ${item.session_name} (${item.leave_type})`;
+  const typeEl = document.getElementById('edit-leave-type');
+  if (typeEl) typeEl.value = item.leave_type || '事假';
   const reasonEl = document.getElementById('edit-leave-reason');
   if (reasonEl) reasonEl.value = item.reason || '';
 
@@ -9808,6 +9833,9 @@ async function submitLeaveMakeupUpdate(e) {
   const item = state.leaves.find(l => l.id === id);
   if (!item) return;
 
+  const typeEl = document.getElementById('edit-leave-type');
+  if (typeEl) item.leave_type = typeEl.value;
+
   const catEl = document.getElementById('edit-leave-category');
   if (catEl) {
     const newCat = catEl.value;
@@ -9831,9 +9859,11 @@ async function submitLeaveMakeupUpdate(e) {
     const { error } = await supabaseClient
       .from('team_leaves')
       .update({
+        leave_type: item.leave_type,
         reason: item.reason,
         leave_photo: item.leave_photo,
-        session_name: item.session_name
+        session_name: item.session_name,
+        leave_category: item.leave_category
       })
       .eq('id', id);
 
