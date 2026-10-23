@@ -8743,10 +8743,9 @@ function renderLeavesSection() {
   const actionCard = document.getElementById('leaves-action-filter-card');
   const filterGrid = document.getElementById('leaves-filter-grid');
   const rosterBoard = document.getElementById('team-attendance-roster-board');
-  const overviewContainer = document.getElementById('leaves-overview-container');
   const detailContainer = document.getElementById('leaves-list-container');
   const subTabBarEl = document.getElementById('leaves-subtab-bar');
-  if (!overviewContainer || !detailContainer) return;
+  if (!detailContainer) return;
 
   const validSubs = isAdmin ? ['calendar', 'leave'] : ['calendar'];
   const activeLeaveSub = (isAdmin && state.leavesSubTab === 'leave') ? 'leave' : 'calendar';
@@ -8783,41 +8782,10 @@ function renderLeavesSection() {
   if (actionCard) actionCard.classList.toggle('hidden', activeLeaveSub !== 'leave');
   if (filterGrid) filterGrid.classList.toggle('hidden', activeLeaveSub !== 'leave');
   if (rosterBoard) rosterBoard.classList.toggle('hidden', activeLeaveSub !== 'leave');
-  overviewContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
   detailContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
 
   if (activeLeaveSub !== 'leave') {
     return;
-  }
-
-  {
-    const byMember = groupLeavesByMember(list);
-
-    overviewContainer.innerHTML = byMember.length === 0 ? '' : `
-      <div class="bg-matte-card p-4 sm:p-5 rounded-2xl border border-matte-border shadow-xs space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
-            <i data-lucide="users" class="w-4 h-4"></i>
-            <span>依球員個人請假次數彙整</span>
-          </h3>
-          <span class="text-xs text-matte-muted">點擊球員可檢視該球員請假紀錄</span>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          ${byMember.map(m => `
-            <div onclick="drillDownLeavesByMember('${m.userId}')"
-              class="cursor-pointer p-3.5 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-1">
-              <div class="flex items-center justify-between">
-                <span class="font-extrabold text-sm text-matte-ink">${escapeHtml(m.userName)}</span>
-                <span class="px-2 py-0.5 rounded text-xs font-bold bg-[#1c1b18] text-stone-100">
-                  累計請假 ${m.total} 次
-                </span>
-              </div>
-              <p class="text-xs text-matte-muted">最近請假：${m.latestDate || '-'}（${escapeHtml(m.types.join('、'))}）</p>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
   }
 
   if (list.length === 0) {
