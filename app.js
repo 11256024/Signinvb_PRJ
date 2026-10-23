@@ -6683,11 +6683,13 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         </div>
 
         <div class="flex flex-wrap items-center gap-2 shrink-0">
-          <button type="button" onclick="openExportAttendanceModal('${activeDate}')"
-            class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
-            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
-            <span>輸出當日名單</span>
-          </button>
+          ${(isAdmin && isPracticeDay(activeDate)) ? `
+            <button type="button" onclick="openExportAttendanceModal('${activeDate}')"
+              class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+              <span>輸出當日名單</span>
+            </button>
+          ` : ''}
           ${isAdmin ? `
             <button type="button" onclick="state.scheduleSubTab = 'calendar'; switchTab('schedule');"
               class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0">
@@ -6721,9 +6723,6 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 練球出席狀況看板</span>
-            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
-              未請假即算出席・練球無須填表單
-            </span>
           </div>
           <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
             當日出席率 ${activeBreakdown.attendancePct}% (${activeBreakdown.presentNames.length} / ${activeBreakdown.attendanceTotal} 人出席)
@@ -6799,9 +6798,6 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 練球出席與體能填報狀況</span>
-            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
-              練球未請假即算出席 ｜ 體能練習需填表單
-            </span>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
@@ -6922,9 +6918,6 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 ${escapeHtml(activeDate)} 體能填報狀況</span>
-            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
-              請假需補整組 ｜ 有出席需完成各項目（沒填寫即是未完成）
-            </span>
           </div>
           ${activeBreakdown.presentTotal > 0 ? `
             <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
@@ -7958,49 +7951,35 @@ function generateDayAttendanceReportText(dateStr) {
     }
   }
 
-  const specialEv = getSpecialEvents().find(e => e.date === d);
+  const typeOrNote = schedDetail.note ? schedDetail.note : schedType;
 
   const lines = [
-    `🏐 【逢甲大學排球隊 練球出缺勤與器材通報】`,
     `📅 日期：${d} (${dayName})`,
-    `🕒 時段：${timeStr} (${schedType})`
+    `🕒 時段：${timeStr} (${typeOrNote})`,
+    ``,
+    `📦 【借還器材負責人】`,
+    `• 借器材：${borrowerText}`,
+    `• 還器材：${returnerText}`,
+    ``,
+    `❌ 【請假球員】（共 ${absentList.length} 人）`
   ];
-
-  if (specialEv) {
-    lines.push(`🏆 特殊行程：${specialEv.title}${specialEv.location ? ` @ ${specialEv.location}` : ''}`);
-  }
-  if (schedDetail.note) {
-    lines.push(`📌 當日備註：${schedDetail.note}`);
-  }
-
-  lines.push(``);
-  lines.push(`📦 【借還器材負責人】`);
-  lines.push(`• 借器材：${borrowerText}`);
-  lines.push(`• 還器材：${returnerText}`);
-  lines.push(``);
-  lines.push(`✅ 【應到／出席球員】（共 ${presentList.length} 人）`);
-  lines.push(presentList.map(u => `${u.name}${u.jersey_number ? ` (#${u.jersey_number})` : ''}`).join('、') || '無');
-  lines.push(``);
-  lines.push(`❌ 【請假球員】（共 ${absentList.length} 人）`);
 
   if (absentList.length === 0) {
     lines.push(`• 全員到齊！無人請假 🎉`);
   } else {
     absentList.forEach(item => {
       const u = item.user;
-      const jn = u.jersey_number ? ` (#${u.jersey_number})` : '';
       const leaveDesc = item.leaves.map(l => {
         const cat = getLeaveCategory(l);
-        return `${l.leave_type}［${cat}］— ${l.reason || '無事由'}`;
+        return `${l.leave_type}${cat ? `［${cat}］` : ''} — ${l.reason || '無事由'}`;
       }).join('；');
-      lines.push(`• ${u.name}${jn}：${leaveDesc}`);
+      lines.push(`• ${u.name}：${leaveDesc}`);
     });
   }
 
   lines.push(``);
   lines.push(`📊 出席概況：應到 ${totalMembers} 人｜實到 ${presentList.length} 人｜請假 ${absentList.length} 人｜出席率 ${attendanceRate}%`);
   lines.push(`----------------------------------------`);
-  lines.push(`通報產生時間：${new Date().toLocaleString('zh-TW', { hour12: false })}`);
 
   return lines.join('\n');
 }
