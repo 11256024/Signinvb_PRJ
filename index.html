@@ -1079,14 +1079,16 @@
           <label class="block text-xs font-bold text-matte-muted mb-1">球員 *</label>
           <select id="leave-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl"></select>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
           <div>
             <label class="block text-xs font-bold text-matte-muted mb-1">日期 *</label>
-            <input type="date" id="leave-date" required class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
+            <input type="date" id="leave-date" required
+              class="w-full h-11 px-3.5 bg-matte-sub border border-matte-border rounded-xl text-sm font-medium text-matte-ink box-border leading-normal" />
           </div>
           <div>
             <label class="block text-xs font-bold text-matte-muted mb-1">假別 *</label>
-            <select id="leave-type" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl">
+            <select id="leave-type"
+              class="w-full h-11 px-3.5 bg-matte-sub border border-matte-border rounded-xl text-sm font-medium text-matte-ink box-border leading-normal">
               <option value="事假">事假</option>
               <option value="病假">病假</option>
               <option value="傷假">傷假</option>
@@ -1099,7 +1101,6 @@
             <option value="請體能">🏋️ 請體能（需補體能）</option>
             <option value="請練球">🏐 請練球（需補九個動作）</option>
           </select>
-          <p class="text-[11px] text-matte-muted mt-1">系統依選擇項目自動累積「需補體能」或「需補九個動作」次數</p>
         </div>
         <div>
           <label class="block text-xs font-bold text-matte-muted mb-1">事由 *</label>

@@ -6540,6 +6540,7 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
   const activeDateTerm = getAcademicTermInfo(activeDate);
   const activeAyDates = getAcademicYearDatesConfig(activeDateTerm.academicYear);
   const editPracticeTimeVal = activeSchedDetails.practiceTime || (activeSchedType !== 'none' && activeSchedType !== '放假' ? activeAyDates.defaultPracticeTime : '');
+  const hasScheduledSession = (activeSchedType !== 'none' && activeSchedType !== '放假') || isPracticeDay(activeDate);
 
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
@@ -6694,11 +6695,13 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
               <span>管理排程 &rarr;</span>
             </button>
           ` : `
-            <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
-              class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
-              <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
-              <span>我要請假 (${activeDate.slice(5)})</span>
-            </button>
+            ${hasScheduledSession ? `
+              <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
+                class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
+                <span>我要請假 (${activeDate.slice(5)})</span>
+              </button>
+            ` : ''}
             ${activeBreakdown.hasFitnessTask ? `
               <button type="button" onclick="goToFitnessForDate('${activeDate}')"
                 class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5">
