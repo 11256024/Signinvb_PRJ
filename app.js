@@ -7033,7 +7033,6 @@ function openLeaveModalForDate(dateStr) {
     if (catSelect) {
       const st = getDateScheduleType(dateStr);
       if (st === '體能') catSelect.value = '請體能';
-      else if (st === '練球+體能') catSelect.value = '請練球+體能';
       else catSelect.value = '請練球';
     }
   }
@@ -7874,7 +7873,7 @@ function renderModalEquipmentSlot(slotContainerId, dateStr) {
 
   wrap.innerHTML = `
     <select id="${slotContainerId}-select" class="w-full px-3 py-2 bg-matte-card border border-matte-border rounded-xl text-xs sm:text-sm font-bold text-matte-ink">
-      <option value="none" ${currentVal === 'none' ? 'selected' : ''}>不登記借還器材（或維持現狀）</option>
+      <option value="none" ${currentVal === 'none' ? 'selected' : ''}>不登記借還器材</option>
       <option value="借器材" ${!canBorrowMore ? 'disabled' : ''} ${currentVal === '借器材' ? 'selected' : ''}>
         📦 借器材（算 1 次）${!canBorrowMore ? '— 已額滿' : `(尚餘 ${eqSt.borrowRemaining} 名額)`}
       </option>
@@ -9505,21 +9504,23 @@ async function deleteFeeRecord(id) {
 // --- 請假操作 (純請假登記與請假證明照片，免批准直接反映於全隊出席情況看板) ---
 function openLeaveModal() {
   const todayStr = getTodayStr();
-  document.getElementById('leave-date').value = todayStr;
-  document.getElementById('leave-session').value = '';
-  document.getElementById('leave-reason').value = '';
+  const dateInput = document.getElementById('leave-date');
+  if (dateInput) dateInput.value = todayStr;
+  const sessionInput = document.getElementById('leave-session');
+  if (sessionInput) sessionInput.value = '';
+  const reasonInput = document.getElementById('leave-reason');
+  if (reasonInput) reasonInput.value = '';
 
   clearPhotoInput('leave-photo-input', 'leave-photo-preview-wrap', 'leave-photo-preview-img');
 
   const userSelect = document.getElementById('leave-user-id');
-  const isAdmin = state.currentUser.role === 'admin';
-  const playerUsers = getPlayerUsers();
-  if (isAdmin) {
-    userSelect.innerHTML = playerUsers.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.jersey_number || u.username)})</option>`).join('');
-    if (playerUsers.length > 0) userSelect.value = playerUsers[0].id;
-  } else {
+  if (userSelect && state.currentUser) {
     userSelect.innerHTML = `<option value="${state.currentUser.id}">${escapeHtml(state.currentUser.name)}</option>`;
     userSelect.value = state.currentUser.id;
+  }
+  const memberWrap = document.getElementById('leave-member-select-wrap');
+  if (memberWrap) {
+    memberWrap.classList.add('hidden');
   }
 
   // 自動依當天訓練類型預設請假項目
@@ -9527,7 +9528,6 @@ function openLeaveModal() {
   const initType = getDateScheduleType(todayStr);
   if (catSelect) {
     if (initType === '體能') catSelect.value = '請體能';
-    else if (initType === '練球+體能') catSelect.value = '請練球+體能';
     else catSelect.value = '請練球';
   }
 
@@ -9539,8 +9539,7 @@ function openLeaveModal() {
       const st = getDateScheduleType(leaveDateInput.value);
       if (catSelect) {
         if (st === '體能') catSelect.value = '請體能';
-        else if (st === '練球+體能') catSelect.value = '請練球+體能';
-        else if (st === '練球') catSelect.value = '請練球';
+        else catSelect.value = '請練球';
       }
     };
   }
@@ -9549,18 +9548,20 @@ function openLeaveModal() {
 
 async function submitLeaveForm(e) {
   e.preventDefault();
-  const uid = document.getElementById('leave-user-id').value;
-  const targetUser = (state.currentUser.role === 'admin' && state.users.find(u => u.id === uid)) || state.currentUser;
+  const uid = document.getElementById('leave-user-id')?.value;
+  const targetUser = (state.currentUser.role === 'admin' && uid && state.users.find(u => u.id === uid)) || state.currentUser;
   const leaveDate = document.getElementById('leave-date').value;
   const leaveType = document.getElementById('leave-type').value;
   const leaveCategory = document.getElementById('leave-category')?.value || '請練球';
-  const rawSession = document.getElementById('leave-session').value.trim();
+  const rawSession = document.getElementById('leave-session')?.value?.trim() || '';
   const reason = document.getElementById('leave-reason').value.trim();
   const leavePhoto = photoBuffer['leave-photo-input'] || '';
 
-  let formattedSession = rawSession;
+  const schedDetails = getDateScheduleDetails(leaveDate);
+  const defaultSessionName = schedDetails.practiceTime || (leaveCategory === '請體能' ? '體能訓練' : '例行練球');
+  let formattedSession = rawSession || `[${leaveCategory}] ${defaultSessionName}`;
   if (!formattedSession.includes(`[${leaveCategory}]`)) {
-    formattedSession = `[${leaveCategory}] ${rawSession}`.trim();
+    formattedSession = `[${leaveCategory}] ${formattedSession}`.trim();
   }
 
   const newLeave = {

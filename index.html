@@ -632,8 +632,6 @@
                 <option value="事假">事假</option>
                 <option value="病假">病假</option>
                 <option value="傷假">傷假</option>
-                <option value="公假">公假</option>
-                <option value="課業/實習">課業 / 實習</option>
               </select>
               <select id="filter-leave-member" onchange="renderLeavesSection()"
                 class="w-full px-3 py-2 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink">
@@ -1077,7 +1075,7 @@
         </button>
       </div>
       <form id="form-leave" onsubmit="submitLeaveForm(event)" class="p-5 space-y-4 overflow-y-auto">
-        <div id="leave-member-select-wrap">
+        <div id="leave-member-select-wrap" class="hidden">
           <label class="block text-xs font-bold text-matte-muted mb-1">球員 *</label>
           <select id="leave-user-id" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl"></select>
         </div>
@@ -1092,8 +1090,6 @@
               <option value="事假">事假</option>
               <option value="病假">病假</option>
               <option value="傷假">傷假</option>
-              <option value="公假">公假</option>
-              <option value="課業/實習">課業 / 實習</option>
             </select>
           </div>
         </div>
@@ -1102,19 +1098,8 @@
           <select id="leave-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm">
             <option value="請體能">🏋️ 請體能（需補體能）</option>
             <option value="請練球">🏐 請練球（需補九個動作）</option>
-            <option value="請練球+體能">🔥 請練球+體能（兩者皆需補）</option>
           </select>
           <p class="text-[11px] text-matte-muted mt-1">系統依選擇項目自動累積「需補體能」或「需補九個動作」次數</p>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-matte-muted mb-1">請假時段 *</label>
-          <input type="text" id="leave-session" required placeholder="如：週三晚間練球"
-            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl" />
-          <div class="flex flex-wrap gap-1.5 mt-2">
-            <button type="button" onclick="setQuickValue('leave-session','例行排球團隊練球')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 例行練球</button>
-            <button type="button" onclick="setQuickValue('leave-session','晨間體能與步法訓練')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 晨間體能</button>
-            <button type="button" onclick="setQuickValue('leave-session','週末排球友誼賽/盃賽')" class="px-2 py-1 text-[11px] bg-matte-sub hover:bg-stone-300 border border-matte-border rounded-md text-matte-ink font-medium">+ 友誼賽/盃賽</button>
-          </div>
         </div>
         <div>
           <label class="block text-xs font-bold text-matte-muted mb-1">事由 *</label>
@@ -1164,7 +1149,6 @@
           <select id="edit-leave-category" class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm">
             <option value="請體能">🏋️ 請體能（需補體能）</option>
             <option value="請練球">🏐 請練球（需補九個動作）</option>
-            <option value="請練球+體能">🔥 請練球+體能（兩者皆需補）</option>
           </select>
         </div>
 
