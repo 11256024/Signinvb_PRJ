@@ -6614,6 +6614,7 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
   const activeSchedType = activeBreakdown.schedType;
   const activeSchedDetails = activeBreakdown.schedDetails;
   const activeLeaves = activeBreakdown.leavesOnDate;
+  const myActiveLeave = activeLeaves.find(isOwnedByCurrentUser);
   const activeLeaveNames = activeBreakdown.leaveNames;
   const activeLeaveSet = activeBreakdown.leaveSet;
   const activeFitness = activeBreakdown.fitnessOnDate;
@@ -6789,6 +6790,13 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
             </button>
           ` : ''}
           ${isAdmin ? `
+            ${hasScheduledSession ? `
+              <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
+                class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+                <span>登記請假</span>
+              </button>
+            ` : ''}
             <button type="button" onclick="state.scheduleSubTab = 'calendar'; switchTab('schedule');"
               class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0">
               <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
@@ -6796,11 +6804,19 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
             </button>
           ` : `
             ${hasScheduledSession ? `
-              <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
-                class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
-                <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
-                <span>我要請假 (${activeDate.slice(5)})</span>
-              </button>
+              ${myActiveLeave ? `
+                <button type="button" onclick="cancelLeaveRecord('${myActiveLeave.id}')"
+                  class="px-3.5 py-2 rounded-xl bg-stone-300 hover:bg-stone-400 text-matte-ink border border-stone-500 text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs">
+                  <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+                  <span>取消請假</span>
+                </button>
+              ` : `
+                <button type="button" onclick="openLeaveModalForDate('${activeDate}')"
+                  class="px-3.5 py-2 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
+                  <span>我要請假 (${activeDate.slice(5)})</span>
+                </button>
+              `}
             ` : ''}
             ${activeBreakdown.hasFitnessTask ? `
               <button type="button" onclick="goToFitnessForDate('${activeDate}')"
@@ -6930,7 +6946,18 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
                   ${activeLeaveNames.map(name => {
                     const lv = activeLeaves.find(l => l.user_name === name);
                     const typeStr = lv && lv.leave_type ? `(${lv.leave_type})` : '';
-                    return `<span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">○ ${escapeHtml(name)}${escapeHtml(typeStr)}</span>`;
+                    const canCancel = lv && (isAdmin || isOwnedByCurrentUser(lv));
+                    return `
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+                        <span>○ ${escapeHtml(name)}${escapeHtml(typeStr)}</span>
+                        ${canCancel ? `
+                          <button type="button" onclick="event.stopPropagation(); cancelLeaveRecord('${lv.id}')"
+                            class="text-stone-500 hover:text-red-700 ml-0.5 p-0.5 transition cursor-pointer" title="取消請假">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                          </button>
+                        ` : ''}
+                      </span>
+                    `;
                   }).join('')}
                 </div>
               `}
@@ -7136,7 +7163,21 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
             <span class="text-xs font-extrabold text-matte-ink">○ 當天請假名單 (${activeLeaveNames.length} 人)</span>
             ${activeLeaveNames.length === 0 ? `<p class="text-xs text-matte-muted">無人請假</p>` : `
               <div class="flex flex-wrap gap-1">
-                ${activeLeaveNames.map(name => `<span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">○ ${escapeHtml(name)}</span>`).join('')}
+                ${activeLeaveNames.map(name => {
+                  const lv = activeLeaves.find(l => l.user_name === name);
+                  const canCancel = lv && (isAdmin || isOwnedByCurrentUser(lv));
+                  return `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+                      <span>○ ${escapeHtml(name)}</span>
+                      ${canCancel ? `
+                        <button type="button" onclick="event.stopPropagation(); cancelLeaveRecord('${lv.id}')"
+                          class="text-stone-500 hover:text-red-700 ml-0.5 p-0.5 transition cursor-pointer" title="取消請假">
+                          <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                      ` : ''}
+                    </span>
+                  `;
+                }).join('')}
               </div>
             `}
           </div>
@@ -9853,11 +9894,11 @@ async function updateLeaveStatus(id, status) {
   showToast(`已將 ${item.user_name} 的請假單更新為「${status}」`, 'success');
 }
 
-async function deleteLeaveRecord(id) {
+async function cancelLeaveRecord(id) {
   const item = state.leaves.find(l => l.id === id);
   if (!item) return;
   if (state.currentUser.role !== 'admin' && !isOwnedByCurrentUser(item)) return;
-  if (!window.confirm('確定要刪除此筆請假紀錄嗎？')) return;
+  if (!window.confirm(`確定要取消 ${item.user_name} 於 ${item.leave_date} 的請假嗎？`)) return;
 
   state.leaves = state.leaves.filter(l => l.id !== id);
   renderAll();
@@ -9866,7 +9907,11 @@ async function deleteLeaveRecord(id) {
     await supabaseClient.from('team_leaves').delete().eq('id', id);
   }
   await notifyRealtimePeers();
-  showToast('已刪除請假紀錄', 'info');
+  showToast('已成功取消請假紀錄！', 'success');
+}
+
+async function deleteLeaveRecord(id) {
+  await cancelLeaveRecord(id);
 }
 
 // --- 球隊經費收支操作 (管理者可新增/刪除，全隊皆可查看) ---
