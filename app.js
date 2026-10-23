@@ -6393,6 +6393,49 @@ function getDateFitnessRosterBreakdown(dateStr) {
 }
 
 // 渲染「練球與體能行事曆」(供「行事曆與練球排程」管理專區、體能分頁與出席看板共用)
+// 解析日曆行程圖標（包含練球、體能、盃賽、聚餐、友誼賽、其他活動、里程碑等，手機版專用只顯示圖標）
+function getCalendarScheduleIcon(schedType, specialEv, milestoneBadge, schedDetails) {
+  if (schedType === '練球') return '🏐';
+  if (schedType === '體能') return '💪';
+  if (schedType === '練球+體能') return '🏐💪';
+  if (schedType === '放假') return '🏖️';
+
+  // 1. 特殊行程 (盃賽、聚餐、活動等)
+  if (specialEv) {
+    const rawEmoji = (specialEv.title || '').match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u)?.[0];
+    if (rawEmoji) return rawEmoji;
+    if (specialEv.isCup || specialEv.category === '盃賽' || (specialEv.title || '').includes('盃') || (specialEv.title || '').includes('賽')) return '🏆';
+    if (specialEv.category === '聚餐' || (specialEv.title || '').includes('聚') || (specialEv.title || '').includes('迎新') || (specialEv.title || '').includes('餐')) return '🍻';
+    if ((specialEv.title || '').includes('友誼') || (specialEv.title || '').includes('交流') || (specialEv.title || '').includes('對抗')) return '🤝';
+    if ((specialEv.title || '').includes('會')) return '📋';
+    return '📌';
+  }
+
+  // 2. 自訂排程類型或備註 (友誼賽、盃賽、自主訓練等)
+  const schedText = `${schedType !== 'none' ? schedType : ''} ${schedDetails?.note || ''}`.trim();
+  if (schedText) {
+    const rawEmoji = schedText.match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u)?.[0];
+    if (rawEmoji) return rawEmoji;
+    if (schedText.includes('盃') || schedText.includes('聯賽') || schedText.includes('錦標') || schedText.includes('比賽')) return '🏆';
+    if (schedText.includes('聚餐') || schedText.includes('迎新') || schedText.includes('隊聚')) return '🍻';
+    if (schedText.includes('友誼') || schedText.includes('交流') || schedText.includes('對抗')) return '🤝';
+    if (schedText.includes('自主') || schedText.includes('重訓')) return '🏋️';
+    if (schedText.includes('會') || schedText.includes('會議')) return '📋';
+    if (schedText.includes('體能')) return '💪';
+    if (schedText.includes('練球') || schedText.includes('排球')) return '🏐';
+    return '📌';
+  }
+
+  // 3. 開學、放假等學期里程碑
+  if (milestoneBadge) {
+    const mEmoji = milestoneBadge.match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u)?.[0];
+    if (mEmoji) return mEmoji;
+    return '📌';
+  }
+
+  return '';
+}
+
 function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar') {
   const container = document.getElementById(containerId);
   if (!container || !state.currentUser) return;
@@ -6446,22 +6489,11 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">${sIcon} ${escapeHtml(specialEv.title)}</span>`;
     }
 
-    // 手機版球員專屬：只顯示 體能或練球的圖標 以及該球員 出席或請假
-    let mobilePlayerIcon = '';
+    // 手機版球員專屬：所有排程（練球、體能、特殊行程、其他排程、里程碑）只顯示圖標，以及該球員 出席或請假
+    const mobilePlayerIcon = getCalendarScheduleIcon(schedType, specialEv, milestoneBadge, schedDetails);
     let mobilePlayerStatus = '';
-    if (schedType === '練球') {
-      mobilePlayerIcon = '🏐';
-    } else if (schedType === '體能') {
-      mobilePlayerIcon = '💪';
-    } else if (schedType === '練球+體能') {
-      mobilePlayerIcon = '🏐💪';
-    } else if (schedType === '放假') {
-      mobilePlayerIcon = '🏖️';
-    } else if (specialEv) {
-      mobilePlayerIcon = specialEv.category === '聚餐' ? '🍻' : (specialEv.isCup || specialEv.category === '盃賽' ? '🏆' : '📌');
-    }
 
-    const hasPracticeOrEvent = (schedType !== 'none' && schedType !== '放假') || Boolean(specialEv);
+    const hasPracticeOrEvent = (schedType !== 'none' && schedType !== '放假') || Boolean(specialEv) || Boolean(schedDetails?.practiceTime) || Boolean(schedDetails?.note);
     if (hasPracticeOrEvent) {
       mobilePlayerStatus = myLeave ? '○ 請假' : '● 出席';
     } else if (schedType === '放假') {
