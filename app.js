@@ -8369,6 +8369,7 @@ function renderTeamAttendanceBoard() {
   const container = document.getElementById('team-attendance-board');
   const rosterContainer = document.getElementById('team-attendance-roster-board');
   if (!container || !state.currentUser) return;
+  const isAdmin = state.currentUser.role === 'admin';
 
   ensureAcademicPeriodInitialized();
   const ay = state.selectedAcademicYear;
