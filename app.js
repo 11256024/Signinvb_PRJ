@@ -6540,7 +6540,8 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
   const activeDateTerm = getAcademicTermInfo(activeDate);
   const activeAyDates = getAcademicYearDatesConfig(activeDateTerm.academicYear);
   const editPracticeTimeVal = activeSchedDetails.practiceTime || (activeSchedType !== 'none' && activeSchedType !== '放假' ? activeAyDates.defaultPracticeTime : '');
-  const hasScheduledSession = (activeSchedType !== 'none' && activeSchedType !== '放假') || isPracticeDay(activeDate);
+  const specialEv = getSpecialEvents().find(e => e.date === activeDate);
+  const hasScheduledSession = (activeSchedType !== 'none' && activeSchedType !== '放假') || isPracticeDay(activeDate) || Boolean(specialEv) || Boolean(activeSchedDetails.practiceTime) || Boolean(activeSchedDetails.note);
 
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-matte-border pb-3">
@@ -6664,18 +6665,28 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
           <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold ${
             activeSchedType === '放假'
               ? 'bg-stone-300 text-matte-ink border border-stone-500'
-              : activeSchedType !== 'none'
+              : (activeSchedType !== 'none' || specialEv)
                 ? 'bg-[#1c1b18] text-stone-100'
                 : 'bg-stone-300 text-matte-ink'
           }">
-            ${activeSchedType === 'none' ? '未排定' : (activeSchedType === '放假' ? '🏖️ 放假停練' : activeSchedType)}
+            ${specialEv ? `${specialEv.category === '聚餐' ? '🍻' : (specialEv.isCup || specialEv.category === '盃賽' ? '🏆' : '📌')} ${escapeHtml(specialEv.title)}` : (activeSchedType === 'none' ? '未排定' : (activeSchedType === '放假' ? '🏖️ 放假停練' : activeSchedType))}
           </span>
+          ${specialEv && specialEv.location ? `
+            <span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-xs font-bold text-matte-ink">
+              📍 ${escapeHtml(specialEv.location)}
+            </span>
+          ` : ''}
+          ${specialEv && specialEv.note ? `
+            <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
+              📝 ${escapeHtml(specialEv.note)}
+            </span>
+          ` : ''}
           ${activeSchedDetails.practiceTime ? `
             <span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-xs font-extrabold text-matte-ink">
               ${activeSchedDetails.isTimeChanged ? '⚠️ ' : '⏰ '}${escapeHtml(activeSchedDetails.practiceTime)}
             </span>
           ` : ''}
-          ${activeSchedDetails.note ? `
+          ${activeSchedDetails.note && (!specialEv || activeSchedDetails.note !== specialEv.note) ? `
             <span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">
               📝 ${escapeHtml(activeSchedDetails.note)}
             </span>
@@ -6683,7 +6694,7 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         </div>
 
         <div class="flex flex-wrap items-center gap-2 shrink-0">
-          ${(isAdmin && isPracticeDay(activeDate)) ? `
+          ${(isAdmin && (isPracticeDay(activeDate) || specialEv)) ? `
             <button type="button" onclick="openExportAttendanceModal('${activeDate}')"
               class="px-3.5 py-2 rounded-xl bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
               <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
@@ -7002,6 +7013,43 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
                     <span class="text-[10px] text-stone-700 font-normal">(${escapeHtml(m.label)})</span>
                   </button>
                 `).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    ` : specialEv ? `
+      <!-- 特殊行程 / 盃賽 / 聚餐看板 -->
+      <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs sm:text-sm font-extrabold text-matte-ink">
+              ${specialEv.category === '聚餐' ? '🍻' : (specialEv.isCup || specialEv.category === '盃賽' ? '🏆' : '📌')} ${escapeHtml(activeDate)} ${escapeHtml(specialEv.title)}
+            </span>
+            ${specialEv.location ? `<span class="px-2 py-0.5 rounded bg-matte-card border border-matte-border text-xs font-bold text-matte-ink">📍 ${escapeHtml(specialEv.location)}</span>` : ''}
+            ${specialEv.note ? `<span class="text-xs text-matte-muted">（${escapeHtml(specialEv.note)}）</span>` : ''}
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">
+            當日出席率 ${activeBreakdown.attendancePct}% (${activeBreakdown.presentNames.length} / ${activeBreakdown.attendanceTotal} 人出席)
+          </span>
+        </div>
+
+        <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden">
+          <div class="h-full bg-[#1c1b18] transition-all duration-300" style="width:${activeBreakdown.attendancePct}%"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <span class="text-xs font-extrabold text-matte-ink">● 當天出席名單 (${activeBreakdown.presentNames.length} 人)</span>
+            <div class="flex flex-wrap gap-1">
+              ${activeBreakdown.presentNames.map(name => `<span class="px-2 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold">● ${escapeHtml(name)}</span>`).join('')}
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-matte-card border border-matte-border space-y-1.5">
+            <span class="text-xs font-extrabold text-matte-ink">○ 當天請假名單 (${activeLeaveNames.length} 人)</span>
+            ${activeLeaveNames.length === 0 ? `<p class="text-xs text-matte-muted">無人請假</p>` : `
+              <div class="flex flex-wrap gap-1">
+                ${activeLeaveNames.map(name => `<span class="px-2 py-0.5 rounded bg-stone-200 border border-stone-400 text-xs font-bold text-matte-ink">○ ${escapeHtml(name)}</span>`).join('')}
               </div>
             `}
           </div>
