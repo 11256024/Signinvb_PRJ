@@ -8216,6 +8216,7 @@ function selectAttendanceDate(dateStr) {
 
 function renderTeamAttendanceBoard() {
   const container = document.getElementById('team-attendance-board');
+  const rosterContainer = document.getElementById('team-attendance-roster-board');
   if (!container || !state.currentUser) return;
 
   ensureAcademicPeriodInitialized();
@@ -8399,11 +8400,12 @@ function renderTeamAttendanceBoard() {
         `}
       </div>
     </div>
+  `;
 
-    <!-- 全隊各球員累計出席 / 請假統計總覽 (所有使用者皆可檢視) -->
-    <div class="pt-2 border-t border-matte-border space-y-2">
+  if (rosterContainer) {
+    rosterContainer.innerHTML = `
       <div class="flex items-center justify-between flex-wrap gap-1">
-        <span class="text-xs font-extrabold text-matte-ink">📊 【${escapeHtml(termInfo.fullTitle)}】全隊隊員累計出席率與請假次數一覽（點擊球員可篩選該球員請假紀錄）：</span>
+        <span class="text-xs sm:text-sm font-extrabold text-matte-ink">📊 【${escapeHtml(termInfo.fullTitle)}】全隊隊員累計出席率與請假次數一覽（點擊球員可篩選該球員請假紀錄）：</span>
         <span class="text-[11px] text-matte-muted">以此期間已登記之 ${practiceDatesSet.size} 個訓練/請假日期計算</span>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -8425,8 +8427,8 @@ function renderTeamAttendanceBoard() {
           `;
         }).join('')}
       </div>
-    </div>
-  `;
+    `;
+  }
 }
 
 function jumpToMemberMakeup(userId, userName) {
@@ -8720,6 +8722,7 @@ function renderLeavesSection() {
   const attendanceEl = document.getElementById('team-attendance-board');
   const actionCard = document.getElementById('leaves-action-filter-card');
   const filterGrid = document.getElementById('leaves-filter-grid');
+  const rosterBoard = document.getElementById('team-attendance-roster-board');
   const overviewContainer = document.getElementById('leaves-overview-container');
   const detailContainer = document.getElementById('leaves-list-container');
   const subTabBarEl = document.getElementById('leaves-subtab-bar');
@@ -8759,6 +8762,7 @@ function renderLeavesSection() {
   if (attendanceEl) attendanceEl.classList.toggle('hidden', activeLeaveSub !== 'leave');
   if (actionCard) actionCard.classList.toggle('hidden', activeLeaveSub !== 'leave');
   if (filterGrid) filterGrid.classList.toggle('hidden', activeLeaveSub !== 'leave');
+  if (rosterBoard) rosterBoard.classList.toggle('hidden', activeLeaveSub !== 'leave');
   overviewContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
   detailContainer.classList.toggle('hidden', activeLeaveSub !== 'leave');
 
