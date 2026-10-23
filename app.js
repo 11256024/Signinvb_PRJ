@@ -2988,7 +2988,7 @@ function getNavItemsForRole(role) {
   items.push(
     { id: 'fitness', label: '體能', fullLabel: '體能與補體能', icon: 'activity' },
     { id: 'fees', label: '隊費', fullLabel: '隊費與代繳', icon: 'wallet' },
-    { id: 'leaves', label: isAdmin ? '行事曆/請假' : '球隊行事曆', fullLabel: isAdmin ? '球隊行事曆與請假' : '球隊行事曆', icon: 'calendar' },
+    { id: 'leaves', label: '行事曆與請假', fullLabel: '行事曆與請假', icon: 'calendar' },
     { id: 'equipment', label: '器材', fullLabel: '借還器材', icon: 'package' },
     { id: 'finances', label: '經費', fullLabel: '球隊經費', icon: 'landmark' },
     { id: 'settings', label: '設定', fullLabel: isAdmin ? '成員與設定' : '帳號設定', icon: 'settings' }
@@ -3030,7 +3030,7 @@ function switchTab(tabId) {
       isAdmin ? '管理全隊收費進度與繳費明細' : '查看應繳項目並回報匯款資訊'
     ],
     leaves: [
-      isAdmin ? '球隊行事曆與請假' : '球隊行事曆',
+      '行事曆與請假',
       isAdmin ? '排程月曆、登記練球請假與全隊出席名單' : '每日排程、固定練球日程與練球請假'
     ],
     equipment: [
@@ -3069,7 +3069,7 @@ function renderNavigation() {
 
   const privacyHint = document.getElementById('user-privacy-hint');
   if (privacyHint) {
-    privacyHint.textContent = isAdmin ? '權限：全隊管理與排程設定' : '權限：個人資料＋球隊行事曆與經費公開';
+    privacyHint.textContent = isAdmin ? '權限：全隊管理與排程設定' : '權限：個人資料＋行事曆與經費公開';
   }
 
   const scopePill = document.getElementById('scope-indicator-pill');
@@ -8641,7 +8641,7 @@ function renderLeavesSection() {
           icon: 'calendar-off'
         }
       ];
-      renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '球隊行事曆與請假', leaveSubTabs, activeLeaveSub);
+      renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '行事曆與請假', leaveSubTabs, activeLeaveSub);
     }
   } else {
     if (subTabBarEl) {
