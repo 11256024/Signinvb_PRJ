@@ -7078,8 +7078,8 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
   `;
 }
 
-function openLeaveModalForDate(dateStr) {
-  openLeaveModal();
+function openLeaveModalForDate(dateStr, targetUserId) {
+  openLeaveModal(dateStr, targetUserId);
   const dEl = document.getElementById('leave-date');
   if (dEl && dateStr) {
     dEl.value = dateStr;
@@ -9560,8 +9560,8 @@ async function deleteFeeRecord(id) {
 }
 
 // --- 請假操作 (純請假登記與請假證明照片，免批准直接反映於全隊出席情況看板) ---
-function openLeaveModal() {
-  const todayStr = getTodayStr();
+function openLeaveModal(defaultDate, targetUserId) {
+  const todayStr = defaultDate || getTodayStr();
   const dateInput = document.getElementById('leave-date');
   if (dateInput) dateInput.value = todayStr;
   const sessionInput = document.getElementById('leave-session');
@@ -9571,14 +9571,27 @@ function openLeaveModal() {
 
   clearPhotoInput('leave-photo-input', 'leave-photo-preview-wrap', 'leave-photo-preview-img');
 
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
   const userSelect = document.getElementById('leave-user-id');
-  if (userSelect && state.currentUser) {
-    userSelect.innerHTML = `<option value="${state.currentUser.id}">${escapeHtml(state.currentUser.name)}</option>`;
-    userSelect.value = state.currentUser.id;
-  }
   const memberWrap = document.getElementById('leave-member-select-wrap');
-  if (memberWrap) {
-    memberWrap.classList.add('hidden');
+  const playerUsers = getPlayerUsers();
+
+  if (isAdmin) {
+    if (memberWrap) memberWrap.classList.remove('hidden');
+    if (userSelect) {
+      userSelect.innerHTML = playerUsers.map(u => `
+        <option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.jersey_number ? `#${u.jersey_number} 隊員` : u.username)})</option>
+      `).join('');
+      const filterMemberVal = document.getElementById('filter-leave-member')?.value;
+      const initialUid = targetUserId || (filterMemberVal && filterMemberVal !== 'all' ? filterMemberVal : (playerUsers[0]?.id || ''));
+      if (initialUid) userSelect.value = initialUid;
+    }
+  } else {
+    if (memberWrap) memberWrap.classList.add('hidden');
+    if (userSelect && state.currentUser) {
+      userSelect.innerHTML = `<option value="${state.currentUser.id}">${escapeHtml(state.currentUser.name)}</option>`;
+      userSelect.value = state.currentUser.id;
+    }
   }
 
   // 自動依當天訓練類型預設請假項目
