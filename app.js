@@ -6430,6 +6430,7 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
     const inSelectedPeriod = isDateInAcademicPeriod(dateStr, state.selectedAcademicYear, state.selectedTermPeriod);
     const dayTerm = getAcademicTermInfo(dateStr);
     const milestoneBadge = getDateMilestoneBadge(dateStr);
+    const specialEv = getSpecialEvents().find(e => e.date === dateStr);
 
     let badgeHtml = '';
     if (schedType === '練球') {
@@ -6440,6 +6441,31 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">🏐練球+💪體能</span>`;
     } else if (schedType === '放假') {
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-stone-300 border border-stone-500 text-matte-ink text-[10px] font-extrabold">🏖️ 放假停練</span>`;
+    } else if (specialEv) {
+      const sIcon = specialEv.category === '聚餐' ? '🍻' : (specialEv.isCup || specialEv.category === '盃賽' ? '🏆' : '📌');
+      badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">${sIcon} ${escapeHtml(specialEv.title)}</span>`;
+    }
+
+    // 手機版球員專屬：只顯示 體能或練球的圖標 以及該球員 出席或請假
+    let mobilePlayerIcon = '';
+    let mobilePlayerStatus = '';
+    if (schedType === '練球') {
+      mobilePlayerIcon = '🏐';
+    } else if (schedType === '體能') {
+      mobilePlayerIcon = '💪';
+    } else if (schedType === '練球+體能') {
+      mobilePlayerIcon = '🏐💪';
+    } else if (schedType === '放假') {
+      mobilePlayerIcon = '🏖️';
+    } else if (specialEv) {
+      mobilePlayerIcon = specialEv.category === '聚餐' ? '🍻' : (specialEv.isCup || specialEv.category === '盃賽' ? '🏆' : '📌');
+    }
+
+    const hasPracticeOrEvent = (schedType !== 'none' && schedType !== '放假') || Boolean(specialEv);
+    if (hasPracticeOrEvent) {
+      mobilePlayerStatus = myLeave ? '○ 請假' : '● 出席';
+    } else if (schedType === '放假') {
+      mobilePlayerStatus = '放假';
     }
 
     let timeAndNoteHtml = '';
@@ -6505,31 +6531,54 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
 
     dayCells.push(`
       <button type="button" onclick="selectAttendanceDate('${dateStr}')"
-        class="min-h-[82px] sm:min-h-[96px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+        class="min-h-[66px] sm:min-h-[96px] p-1 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition ${
           isSelected
             ? 'bg-stone-200 border-[#1c1b18] ring-2 ring-[#1c1b18]'
             : !inSelectedPeriod
               ? 'bg-matte-sub/40 border-dashed border-stone-300 opacity-55 hover:opacity-90'
               : schedType === '放假'
                 ? 'bg-stone-200/75 border-stone-400 hover:border-stone-600'
-                : schedType !== 'none' || fitnessOnDay.length > 0
+                : schedType !== 'none' || fitnessOnDay.length > 0 || specialEv
                   ? 'bg-matte-card border-stone-400 hover:border-stone-600 shadow-2xs'
                   : 'bg-matte-sub/70 border-matte-border hover:bg-stone-200/70'
         }">
         <div class="w-full flex items-center justify-between gap-1">
           <div class="flex items-center gap-1 min-w-0">
             <span class="text-xs sm:text-sm font-extrabold ${isToday ? 'px-1.5 py-0.2 rounded bg-[#1c1b18] text-stone-100' : 'text-matte-ink'}">${day}</span>
-            ${!inSelectedPeriod ? `<span class="text-[9px] px-1 rounded bg-stone-200 text-matte-muted font-bold truncate">${escapeHtml(dayTerm.period)}</span>` : ''}
+            ${!inSelectedPeriod ? `<span class="hidden sm:inline text-[9px] px-1 rounded bg-stone-200 text-matte-muted font-bold truncate">${escapeHtml(dayTerm.period)}</span>` : ''}
           </div>
-          ${schedType !== 'none' || fitnessOnDay.length > 0 ? `<span class="w-2 h-2 rounded-full ${schedType === '放假' ? 'bg-stone-500' : 'bg-[#1c1b18]'} shrink-0"></span>` : ''}
+          ${schedType !== 'none' || fitnessOnDay.length > 0 || specialEv ? `<span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${schedType === '放假' ? 'bg-stone-500' : 'bg-[#1c1b18]'} shrink-0"></span>` : ''}
         </div>
-        <div class="w-full space-y-0.5 mt-1 overflow-hidden">
-          ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
-          ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
-          ${timeAndNoteHtml}
-          ${progressHtml}
-          ${userReminderHtml}
-        </div>
+
+        ${!isAdmin ? `
+          <!-- 手機版（球員版）：只顯示 體能或練球的圖標 以及該球員 出席或請假 -->
+          <div class="block sm:hidden w-full text-center mt-0.5 space-y-0.5 overflow-hidden">
+            ${mobilePlayerIcon ? `<div class="text-sm leading-none">${mobilePlayerIcon}</div>` : ''}
+            ${mobilePlayerStatus ? `
+              <div class="text-[10px] font-extrabold leading-tight truncate ${myLeave ? 'text-stone-500' : 'text-matte-ink'}">
+                ${mobilePlayerStatus}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- 電腦版（球員版）：完整排程資訊 -->
+          <div class="hidden sm:block w-full space-y-0.5 mt-1 overflow-hidden">
+            ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
+            ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
+            ${timeAndNoteHtml}
+            ${progressHtml}
+            ${userReminderHtml}
+          </div>
+        ` : `
+          <!-- 管理者視角 -->
+          <div class="w-full space-y-0.5 mt-1 overflow-hidden">
+            ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
+            ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
+            ${timeAndNoteHtml}
+            ${progressHtml}
+            ${userReminderHtml}
+          </div>
+        `}
       </button>
     `);
   }
