@@ -2762,7 +2762,12 @@ function switchSectionSubTab(sectionKey, subTabId) {
     }
     // 舊版子分頁代號相容轉換
     const legacyMap = { attendance: 'leave', overview: 'leave', list: 'leave' };
-    state.leavesSubTab = legacyMap[subTabId] || subTabId;
+    const targetSub = legacyMap[subTabId] || subTabId;
+    if (!isAdmin && targetSub === 'leave') {
+      state.leavesSubTab = 'calendar';
+    } else {
+      state.leavesSubTab = targetSub;
+    }
     renderLeavesSection();
   } else if (sectionKey === 'finances') {
     state.financesSubTab = subTabId;
@@ -2923,6 +2928,10 @@ function drillDownFeesByMember(userId) {
 }
 
 function drillDownLeavesByMember(userId) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    switchTab('leaves');
+    return;
+  }
   const searchEl = document.getElementById('filter-leave-search');
   const memberEl = document.getElementById('filter-leave-member');
   if (searchEl) searchEl.value = '';
@@ -2930,26 +2939,25 @@ function drillDownLeavesByMember(userId) {
     memberEl.value = memberEl.value === userId ? 'all' : userId;
   }
   state.leavesSubTab = 'leave';
-  if (state.currentUser && state.currentUser.role === 'admin') {
-    setAdminViewMode('detail');
-  }
+  setAdminViewMode('detail');
   renderLeavesSection();
   renderPracticeScheduleCalendar('leaves-schedule-calendar');
   lucide.createIcons();
 }
 
 function drillDownLeavesBySession(sessionName) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    switchTab('leaves');
+    return;
+  }
   const searchEl = document.getElementById('filter-leave-search');
   const memberEl = document.getElementById('filter-leave-member');
   if (searchEl) searchEl.value = sessionName;
   if (memberEl) memberEl.value = 'all';
   state.leavesSubTab = 'leave';
-  if (state.currentUser && state.currentUser.role === 'admin') {
-    setAdminViewMode('detail');
-  } else {
-    renderLeavesSection();
-    lucide.createIcons();
-  }
+  setAdminViewMode('detail');
+  renderLeavesSection();
+  lucide.createIcons();
 }
 
 function drillDownFinanceByCategory(category) {
@@ -2980,7 +2988,7 @@ function getNavItemsForRole(role) {
   items.push(
     { id: 'fitness', label: '體能', fullLabel: '體能與補體能', icon: 'activity' },
     { id: 'fees', label: '隊費', fullLabel: '隊費與代繳', icon: 'wallet' },
-    { id: 'leaves', label: '行事曆/請假', fullLabel: '球隊行事曆與請假', icon: 'calendar' },
+    { id: 'leaves', label: isAdmin ? '行事曆/請假' : '球隊行事曆', fullLabel: isAdmin ? '球隊行事曆與請假' : '球隊行事曆', icon: 'calendar' },
     { id: 'equipment', label: '器材', fullLabel: '借還器材', icon: 'package' },
     { id: 'finances', label: '經費', fullLabel: '球隊經費', icon: 'landmark' },
     { id: 'settings', label: '設定', fullLabel: isAdmin ? '成員與設定' : '帳號設定', icon: 'settings' }
@@ -2991,6 +2999,9 @@ function getNavItemsForRole(role) {
 function switchTab(tabId) {
   state.activeTab = tabId;
   const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if (!isAdmin && state.leavesSubTab === 'leave') {
+    state.leavesSubTab = 'calendar';
+  }
 
   const allTabs = ['dashboard', 'schedule', 'fitness', 'fees', 'leaves', 'equipment', 'finances', 'settings'];
   allTabs.forEach(t => {
@@ -3019,8 +3030,8 @@ function switchTab(tabId) {
       isAdmin ? '管理全隊收費進度與繳費明細' : '查看應繳項目並回報匯款資訊'
     ],
     leaves: [
-      '球隊行事曆與請假',
-      '排程月曆、登記練球請假與全隊出席名單'
+      isAdmin ? '球隊行事曆與請假' : '球隊行事曆',
+      isAdmin ? '排程月曆、登記練球請假與全隊出席名單' : '每日排程、固定練球日程與練球請假'
     ],
     equipment: [
       '借還器材',
@@ -3058,7 +3069,7 @@ function renderNavigation() {
 
   const privacyHint = document.getElementById('user-privacy-hint');
   if (privacyHint) {
-    privacyHint.textContent = isAdmin ? '權限：全隊管理與排程設定' : '權限：個人資料＋全隊出席與經費公開';
+    privacyHint.textContent = isAdmin ? '權限：全隊管理與排程設定' : '權限：個人資料＋球隊行事曆與經費公開';
   }
 
   const scopePill = document.getElementById('scope-indicator-pill');
@@ -8544,11 +8555,18 @@ function renderMakeupStatsBoard(containerId = 'fitness-makeup-stats-board') {
               </div>
 
               <div class="flex items-center justify-between gap-1 pt-1 text-xs">
-                <button type="button" onclick="drillDownLeavesByMember('${u.id}')"
-                  class="text-[11px] text-matte-muted hover:text-matte-ink font-bold flex items-center gap-1">
-                  <i data-lucide="calendar-off" class="w-3 h-3"></i>
-                  <span>請假 ${item.leaveCount} 次</span>
-                </button>
+                ${isAdmin ? `
+                  <button type="button" onclick="drillDownLeavesByMember('${u.id}')"
+                    class="text-[11px] text-matte-muted hover:text-matte-ink font-bold flex items-center gap-1">
+                    <i data-lucide="calendar-off" class="w-3 h-3"></i>
+                    <span>請假 ${item.leaveCount} 次</span>
+                  </button>
+                ` : `
+                  <span class="text-[11px] text-matte-muted font-bold flex items-center gap-1">
+                    <i data-lucide="calendar-off" class="w-3 h-3"></i>
+                    <span>請假 ${item.leaveCount} 次</span>
+                  </span>
+                `}
                 <button type="button" onclick="openLogNineActionsModal('${u.id}')"
                   class="px-2 py-0.5 rounded-lg bg-matte-card hover:bg-stone-300 text-matte-ink border border-matte-border text-[11px] font-bold transition flex items-center gap-1">
                   <i data-lucide="plus" class="w-3 h-3"></i>
@@ -8599,28 +8617,38 @@ function renderLeavesSection() {
   const filterGrid = document.getElementById('leaves-filter-grid');
   const overviewContainer = document.getElementById('leaves-overview-container');
   const detailContainer = document.getElementById('leaves-list-container');
+  const subTabBarEl = document.getElementById('leaves-subtab-bar');
   if (!overviewContainer || !detailContainer) return;
 
-  const validSubs = ['calendar', 'leave'];
-  const activeLeaveSub = validSubs.includes(state.leavesSubTab) ? state.leavesSubTab : 'calendar';
+  const validSubs = isAdmin ? ['calendar', 'leave'] : ['calendar'];
+  const activeLeaveSub = (isAdmin && state.leavesSubTab === 'leave') ? 'leave' : 'calendar';
   state.leavesSubTab = activeLeaveSub;
 
-  const leaveSubTabs = [
-    {
-      id: 'calendar',
-      title: '🗓️ 球隊行事曆',
-      desc: '每日排程、固定練球日程與完成進度',
-      icon: 'calendar'
-    },
-    {
-      id: 'leave',
-      title: `📋 請假與全隊出席 (${list.length})`,
-      desc: '登記請假、全隊出席情況看板與請假明細',
-      icon: 'calendar-off'
+  if (isAdmin) {
+    if (subTabBarEl) {
+      subTabBarEl.classList.remove('hidden');
+      const leaveSubTabs = [
+        {
+          id: 'calendar',
+          title: '🗓️ 球隊行事曆',
+          desc: '每日排程、固定練球日程與完成進度',
+          icon: 'calendar'
+        },
+        {
+          id: 'leave',
+          title: `📋 請假與全隊出席 (${list.length})`,
+          desc: '登記請假、全隊出席情況看板與請假明細',
+          icon: 'calendar-off'
+        }
+      ];
+      renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '球隊行事曆與請假', leaveSubTabs, activeLeaveSub);
     }
-  ];
-
-  renderSubTabBannerHtml('leaves-subtab-bar', 'leaves', '球隊行事曆與請假', leaveSubTabs, activeLeaveSub);
+  } else {
+    if (subTabBarEl) {
+      subTabBarEl.classList.add('hidden');
+      subTabBarEl.innerHTML = '';
+    }
+  }
 
   if (calendarEl) calendarEl.classList.toggle('hidden', activeLeaveSub !== 'calendar');
   if (attendanceEl) attendanceEl.classList.toggle('hidden', activeLeaveSub !== 'leave');
