@@ -997,18 +997,6 @@ function getDateMilestoneBadge(dateStr) {
   if (!dateStr || dateStr.length < 10) return '';
   const d = dateStr.slice(0, 10);
 
-  // 優先檢查是否有特殊行程 / 盃賽
-  const specialEv = getSpecialEvents().find(e => e.date === d);
-  if (specialEv) {
-    if (specialEv.category === '盃賽' || specialEv.isCup) {
-      return `🏆 ${specialEv.title}`;
-    } else if (specialEv.category === '聚餐') {
-      return `🍻 ${specialEv.title}`;
-    } else {
-      return `📌 ${specialEv.title}`;
-    }
-  }
-
   const info = getAcademicTermInfo(d);
   const dates = getAcademicYearDatesConfig(info.academicYear);
   const shortMd = `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
