@@ -3139,7 +3139,7 @@ function renderNavigation() {
   const leaveOpenBtn = document.getElementById('btn-open-leave-modal');
   if (leaveOpenBtn) leaveOpenBtn.classList.remove('hidden');
   const leaveOpenText = document.getElementById('btn-open-leave-text');
-  if (leaveOpenText) leaveOpenText.textContent = isAdmin ? '登記請假 / 借器材' : '我要請假 / 借器材';
+  if (leaveOpenText) leaveOpenText.textContent = isAdmin ? '登記請假' : '我要請假';
   const fitRoleHint = document.getElementById('fitness-role-hint');
   if (fitRoleHint) {
     fitRoleHint.textContent = isAdmin
@@ -6554,12 +6554,6 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
         <button type="button" onclick="changeScheduleMonth(-1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">&larr; 上月</button>
         <span class="px-3 py-1.5 rounded-xl bg-[#1c1b18] text-stone-100 text-xs sm:text-sm font-extrabold">${year} 年 ${month} 月</span>
         <button type="button" onclick="changeScheduleMonth(1)" class="px-2.5 py-1.5 rounded-xl bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">下月 &rarr;</button>
-        ${!isScheduleMgmtTab ? `
-          <button type="button" onclick="openLeaveModal()" class="px-3 py-1.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 text-xs font-bold transition flex items-center gap-1 shadow-xs">
-            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
-            <span>登記請假/器材</span>
-          </button>
-        ` : ''}
       </div>
     </div>
 
