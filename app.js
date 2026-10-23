@@ -8771,40 +8771,14 @@ function renderLeavesSection() {
   }
 
   {
-    const bySession = groupLeavesBySession(list);
     const byMember = groupLeavesByMember(list);
 
-    overviewContainer.innerHTML = `
-      <div class="bg-matte-card p-4 sm:p-5 rounded-2xl border border-matte-border shadow-xs space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
-            <i data-lucide="calendar" class="w-4 h-4"></i>
-            <span>【統計一】依練球日期與時段請假人數彙整</span>
-          </h3>
-          <span class="text-xs text-matte-muted">點擊時段可檢視請假細項</span>
-        </div>
-        ${bySession.length === 0 ? `<p class="text-xs text-matte-muted py-4 text-center">目前無請假紀錄</p>` : `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            ${bySession.map(s => `
-              <div onclick="drillDownLeavesBySession('${escapeJsStr(s.sessionName)}')"
-                class="cursor-pointer p-4 rounded-xl bg-matte-sub border border-matte-border hover:border-stone-500 transition space-y-1.5">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-bold text-sm text-matte-ink">🏐 ${escapeHtml(s.sessionName)}</span>
-                  <span class="px-2.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-xs font-bold shrink-0">請假 ${s.count} 人</span>
-                </div>
-                <p class="text-xs text-matte-muted">日期：${s.leaveDate}</p>
-                <p class="text-xs text-matte-ink">請假人員：${escapeHtml(s.members.join('、'))}</p>
-              </div>
-            `).join('')}
-          </div>
-        `}
-      </div>
-
+    overviewContainer.innerHTML = byMember.length === 0 ? '' : `
       <div class="bg-matte-card p-4 sm:p-5 rounded-2xl border border-matte-border shadow-xs space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="font-extrabold text-sm sm:text-base text-matte-ink flex items-center gap-2">
             <i data-lucide="users" class="w-4 h-4"></i>
-            <span>【統計二】依球員個人請假次數彙整</span>
+            <span>依球員個人請假次數彙整</span>
           </h3>
           <span class="text-xs text-matte-muted">點擊球員可檢視該球員請假紀錄</span>
         </div>
