@@ -8214,6 +8214,157 @@ function selectAttendanceDate(dateStr) {
   lucide.createIcons();
 }
 
+// 輔助：取得指定日期的練球場地（室內/室外）、項目（練球/體能）與時段資訊
+function getDateAttendanceSessionInfo(dateStr) {
+  const schedDetails = getDateScheduleDetails(dateStr);
+  let type = schedDetails.type;
+  let practiceTime = schedDetails.practiceTime || '';
+  let note = schedDetails.note || '';
+  let venue = schedDetails.venue || '';
+
+  if (!venue) {
+    if (type.includes('室內') || note.includes('室內')) venue = '室內';
+    else if (type.includes('室外') || note.includes('室外')) venue = '室外';
+  }
+
+  const leavesOnDate = getRealLeaves().filter(l => l.leave_date === dateStr);
+  if (!practiceTime && leavesOnDate.length > 0) {
+    for (const l of leavesOnDate) {
+      const match = (l.session_name || '').match(/\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}/);
+      if (match) {
+        practiceTime = match[0].replace(/\s+/g, '');
+        break;
+      }
+    }
+  }
+
+  if (type === 'none' && leavesOnDate.length > 0) {
+    const hasFitnessLeave = leavesOnDate.some(l => (l.session_name || '').includes('請體能') || l.leave_category === '請體能');
+    const hasBallLeave = leavesOnDate.some(l => (l.session_name || '').includes('請練球') || l.leave_category === '請練球');
+    if (hasFitnessLeave && hasBallLeave) type = '練球+體能';
+    else if (hasFitnessLeave) type = '體能';
+    else if (hasBallLeave) type = '練球';
+  }
+
+  // 嘗試從固定練球排程規則 (rules) 匹配時段與場地
+  if (!practiceTime || type === 'none') {
+    try {
+      const termInfo = getAcademicTermInfo(dateStr);
+      const curPlan = getTermLongTermPlanConfig(termInfo.academicYear, termInfo.period);
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const wk = new Date(y, m - 1, d).getDay();
+      const matchedRule = (curPlan.rules || []).find(r => Array.isArray(r.weekdays) && r.weekdays.includes(wk));
+      if (matchedRule) {
+        if (!practiceTime && matchedRule.practiceTime) practiceTime = matchedRule.practiceTime;
+        if (type === 'none' && matchedRule.type) type = matchedRule.type;
+        if (!venue) {
+          if ((matchedRule.type || '').includes('室內') || (matchedRule.planNote || '').includes('室內')) venue = '室內';
+          else if ((matchedRule.type || '').includes('室外') || (matchedRule.planNote || '').includes('室外')) venue = '室外';
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (!practiceTime) {
+    practiceTime = '17:30~20:30';
+  }
+
+  let displayType = '';
+  if (type === '體能') {
+    displayType = '💪 體能訓練';
+  } else if (type.includes('體能') && type.includes('練球')) {
+    displayType = venue ? `🏐+💪 ${venue}練球+體能` : '🏐+💪 室外練球+體能';
+  } else if (type === '放假') {
+    displayType = '🏖️ 放假停練';
+  } else if (type.includes('練球') || leavesOnDate.length > 0) {
+    displayType = venue ? `🏐 ${venue}練球` : '🏐 室外練球';
+  } else {
+    displayType = venue ? `🏐 ${venue}練球` : '🏐 室外練球';
+  }
+
+  return {
+    rawType: type,
+    displayType,
+    practiceTime,
+    venue: venue || (displayType.includes('室內') ? '室內' : '室外'),
+    note
+  };
+}
+
+function openAttendanceScheduleModal(dateStr) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') return;
+  const targetDate = dateStr || state.selectedAttendanceDate || getTodayStr();
+  const info = getDateAttendanceSessionInfo(targetDate);
+
+  const dateInput = document.getElementById('edit-att-date');
+  const dateDisp = document.getElementById('edit-att-date-display');
+  if (dateInput) dateInput.value = targetDate;
+  if (dateDisp) dateDisp.textContent = targetDate;
+
+  let selectVal = '室外練球';
+  if (info.rawType === '體能') selectVal = '體能';
+  else if (info.rawType.includes('體能') && info.rawType.includes('練球')) selectVal = '練球+體能';
+  else if (info.rawType === '放假') selectVal = '放假';
+  else if (info.venue === '室內') selectVal = '室內練球';
+  else selectVal = '室外練球';
+
+  const typeEl = document.getElementById('edit-att-type');
+  if (typeEl) typeEl.value = selectVal;
+
+  const timeEl = document.getElementById('edit-att-time');
+  if (timeEl) timeEl.value = info.practiceTime || '17:30~20:30';
+
+  const noteEl = document.getElementById('edit-att-note');
+  if (noteEl) noteEl.value = info.note || '';
+
+  const modal = document.getElementById('modal-attendance-schedule');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function fillAttQuickTime(timeStr) {
+  const el = document.getElementById('edit-att-time');
+  if (el) el.value = timeStr;
+}
+
+async function submitAttendanceScheduleForm(e) {
+  if (e) e.preventDefault();
+  if (!state.currentUser || state.currentUser.role !== 'admin') return;
+
+  const dateStr = document.getElementById('edit-att-date').value;
+  const typeVal = document.getElementById('edit-att-type').value;
+  const timeVal = (document.getElementById('edit-att-time').value || '').trim() || '17:30~20:30';
+  const noteVal = (document.getElementById('edit-att-note').value || '').trim();
+
+  let schedType = typeVal;
+  let venue = '';
+  if (typeVal === '室內練球') {
+    schedType = '室內練球';
+    venue = '室內';
+  } else if (typeVal === '室外練球') {
+    schedType = '室外練球';
+    venue = '室外';
+  } else if (typeVal === '體能') {
+    schedType = '體能';
+    venue = '室內';
+  } else if (typeVal === '練球+體能') {
+    schedType = '練球+體能';
+    venue = '室外';
+  }
+
+  await setAdminScheduleForDate(dateStr, schedType, {
+    practiceTime: timeVal,
+    isTimeChanged: true,
+    venue,
+    note: noteVal
+  });
+
+  closeModal('modal-attendance-schedule');
+  renderAll();
+  showToast(`已成功更新【${dateStr}】為「${typeVal}（${timeVal}）」！`, 'success');
+}
+
 function renderTeamAttendanceBoard() {
   const container = document.getElementById('team-attendance-board');
   const rosterContainer = document.getElementById('team-attendance-roster-board');
@@ -8285,6 +8436,7 @@ function renderTeamAttendanceBoard() {
   getRealLeaves().forEach(l => { if (l.leave_date && isDateInAcademicPeriod(l.leave_date, ay, pk)) practiceDatesSet.add(l.leave_date); });
   state.fitness.forEach(f => { if (f.target_date && isDateInAcademicPeriod(f.target_date, ay, pk)) practiceDatesSet.add(f.target_date); });
   const totalSessionsCount = Math.max(1, practiceDatesSet.size);
+  const sessionInfo = getDateAttendanceSessionInfo(activeDate);
 
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-matte-border pb-3">
@@ -8296,6 +8448,20 @@ function renderTeamAttendanceBoard() {
         <span class="px-2.5 py-0.5 rounded text-[11px] font-extrabold bg-[#1c1b18] text-stone-100">
           當日出席率 ${attendancePct}%
         </span>
+        <span class="px-2.5 py-0.5 rounded text-[11px] font-extrabold bg-stone-300 text-matte-ink border border-stone-400">
+          ${escapeHtml(sessionInfo.displayType)}
+        </span>
+        <span class="px-2.5 py-0.5 rounded text-[11px] font-extrabold bg-matte-sub text-matte-ink border border-matte-border">
+          ⏰ ${escapeHtml(sessionInfo.practiceTime)}
+        </span>
+        ${isAdmin ? `
+          <button type="button" onclick="openAttendanceScheduleModal('${activeDate}')"
+            class="px-2 py-0.5 rounded-lg bg-matte-sub hover:bg-stone-300 text-matte-ink border border-matte-border text-[11px] font-bold transition flex items-center gap-1 shadow-2xs"
+            title="變更當日練球場地與時段">
+            <i data-lucide="edit-3" class="w-3 h-3"></i>
+            <span>變更場地/時段</span>
+          </button>
+        ` : ''}
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <label class="text-xs text-matte-muted font-bold">切換檢視日期：</label>
@@ -8372,7 +8538,7 @@ function renderTeamAttendanceBoard() {
       <div class="p-4 rounded-2xl bg-matte-sub border border-matte-border space-y-2.5">
         <div class="flex items-center justify-between">
           <h4 class="text-xs sm:text-sm font-extrabold text-matte-ink">○ 當日請假球員名單 (${absentPlayers.length} 人)</h4>
-          <span class="text-[11px] text-matte-muted">顯示假別、時段與事由</span>
+          <span class="text-[11px] text-matte-muted">顯示假別與事由</span>
         </div>
         ${absentPlayers.length === 0 ? `
           <div class="p-4 rounded-xl bg-matte-card border border-matte-border text-xs text-matte-ink font-bold text-center">
@@ -8390,7 +8556,6 @@ function renderTeamAttendanceBoard() {
                       <div class="flex items-center gap-1.5 flex-wrap">
                         <span class="font-extrabold text-xs text-matte-ink">○ ${escapeHtml(item.user.name)}</span>
                         <span class="px-1.5 py-0.5 rounded bg-stone-300 text-matte-ink text-[10px] font-bold">${escapeHtml(l.leave_type)}</span>
-                        <span class="text-xs text-matte-muted truncate">${escapeHtml(l.session_name)}</span>
                       </div>
                       <p class="text-[11px] text-matte-muted mt-0.5 truncate">事由：${escapeHtml(l.reason || '無')}</p>
                     </div>

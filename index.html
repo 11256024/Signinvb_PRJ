@@ -1190,6 +1190,62 @@
     </div>
   </div>
 
+  <!-- 3-C. 變更當日練球場地與時段 Modal -->
+  <div id="modal-attendance-schedule" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-matte-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-matte-border bg-[#181816] text-stone-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-base flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4"></i>
+          <span>變更當日排程（場地與時段）</span>
+        </h3>
+        <button type="button" onclick="closeModal('modal-attendance-schedule')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-attendance-schedule" onsubmit="submitAttendanceScheduleForm(event)" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="edit-att-date" />
+        <div class="p-3 rounded-xl bg-matte-sub border border-matte-border flex items-center justify-between">
+          <span class="text-xs font-bold text-matte-muted">排程日期</span>
+          <span class="text-sm font-extrabold text-matte-ink" id="edit-att-date-display">2026-10-29</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">訓練項目與場地 *</label>
+          <select id="edit-att-type" class="w-full h-11 px-3.5 bg-matte-sub border border-matte-border rounded-xl font-bold text-sm text-matte-ink box-border leading-normal">
+            <option value="室外練球">🏐 室外練球</option>
+            <option value="室內練球">🏐 室內練球</option>
+            <option value="體能">💪 體能訓練</option>
+            <option value="練球+體能">🏐+💪 練球+體能</option>
+            <option value="放假">🏖️ 放假停練</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">練習時段 *</label>
+          <input type="text" id="edit-att-time" placeholder="如 17:30~20:30"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl text-sm font-bold text-matte-ink" />
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <button type="button" onclick="fillAttQuickTime('17:30~20:30')" class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">17:30~20:30</button>
+            <button type="button" onclick="fillAttQuickTime('18:30~21:30')" class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">18:30~21:30</button>
+            <button type="button" onclick="fillAttQuickTime('19:30~21:30')" class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">19:30~21:30</button>
+            <button type="button" onclick="fillAttQuickTime('12:15~13:30')" class="px-2.5 py-1 rounded-lg bg-matte-sub hover:bg-stone-300 border border-matte-border text-xs font-bold text-matte-ink">12:15~13:30</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-matte-muted mb-1">異動或場地說明（選填）</label>
+          <input type="text" id="edit-att-note" placeholder="如：體育館二樓、晴天下室外場"
+            class="w-full px-3.5 py-2.5 bg-matte-sub border border-matte-border rounded-xl text-xs sm:text-sm font-medium text-matte-ink" />
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('modal-attendance-schedule')" class="flex-1 py-2.5 rounded-xl bg-matte-sub border border-matte-border text-matte-ink font-bold text-sm">取消</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#1c1b18] hover:bg-stone-800 text-stone-100 font-bold text-sm">儲存變更</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 4. 球隊經費收支記帳 Modal -->
   <div id="modal-finance" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-matte-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl border border-matte-border max-h-[90dvh] flex flex-col overflow-hidden">
