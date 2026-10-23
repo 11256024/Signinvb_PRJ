@@ -6489,16 +6489,22 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
       badgeHtml = `<span class="px-1.5 py-0.5 rounded bg-[#1c1b18] text-stone-100 text-[10px] font-extrabold">${sIcon} ${escapeHtml(specialEv.title)}</span>`;
     }
 
-    // 手機版球員專屬：所有排程（練球、體能、特殊行程、其他排程、里程碑）只顯示圖標，以及該球員 出席或請假
-    const mobilePlayerIcon = getCalendarScheduleIcon(schedType, specialEv, milestoneBadge, schedDetails);
-    let mobilePlayerStatus = '';
+    // 手機版（球員版與管理者版）：所有排程（練球、體能、特殊行程、其他排程、里程碑）只顯示圖標
+    const mobileScheduleIcon = getCalendarScheduleIcon(schedType, specialEv, milestoneBadge, schedDetails);
+    let mobileStatus = '';
 
     const hasPracticeOrEvent = (schedType !== 'none' && schedType !== '放假') || Boolean(specialEv) || Boolean(schedDetails?.practiceTime) || Boolean(schedDetails?.note);
     if (hasPracticeOrEvent) {
-      mobilePlayerStatus = myLeave ? '○ 請假' : '● 出席';
+      if (isAdmin) {
+        mobileStatus = realLeavesOnDay.length > 0 ? '○ 有請假' : '● 全隊出席';
+      } else {
+        mobileStatus = myLeave ? '○ 請假' : '● 出席';
+      }
     } else if (schedType === '放假') {
-      mobilePlayerStatus = '放假';
+      mobileStatus = '放假';
     }
+
+    const isLeaveStatus = isAdmin ? realLeavesOnDay.length > 0 : Boolean(myLeave);
 
     let timeAndNoteHtml = '';
     if (schedDetails.practiceTime) {
@@ -6582,35 +6588,24 @@ function renderPracticeScheduleCalendar(containerId = 'leaves-schedule-calendar'
           ${schedType !== 'none' || fitnessOnDay.length > 0 || specialEv ? `<span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${schedType === '放假' ? 'bg-stone-500' : 'bg-[#1c1b18]'} shrink-0"></span>` : ''}
         </div>
 
-        ${!isAdmin ? `
-          <!-- 手機版（球員版）：只顯示 體能或練球的圖標 以及該球員 出席或請假 -->
-          <div class="block sm:hidden w-full text-center mt-0.5 space-y-0.5 overflow-hidden">
-            ${mobilePlayerIcon ? `<div class="text-sm leading-none">${mobilePlayerIcon}</div>` : ''}
-            ${mobilePlayerStatus ? `
-              <div class="text-[10px] font-extrabold leading-tight truncate ${myLeave ? 'text-stone-500' : 'text-matte-ink'}">
-                ${mobilePlayerStatus}
-              </div>
-            ` : ''}
-          </div>
+        <!-- 手機版（通用簡化視角：所有排程只顯示圖標，球員顯示個人出席/請假，管理者顯示全隊出席/有請假） -->
+        <div class="block sm:hidden w-full text-center mt-0.5 space-y-0.5 overflow-hidden">
+          ${mobileScheduleIcon ? `<div class="text-sm leading-none">${mobileScheduleIcon}</div>` : ''}
+          ${mobileStatus ? `
+            <div class="text-[10px] font-extrabold leading-tight truncate ${isLeaveStatus ? 'text-stone-500' : 'text-matte-ink'}">
+              ${mobileStatus}
+            </div>
+          ` : ''}
+        </div>
 
-          <!-- 電腦版（球員版）：完整排程資訊 -->
-          <div class="hidden sm:block w-full space-y-0.5 mt-1 overflow-hidden">
-            ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
-            ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
-            ${timeAndNoteHtml}
-            ${progressHtml}
-            ${userReminderHtml}
-          </div>
-        ` : `
-          <!-- 管理者視角 -->
-          <div class="w-full space-y-0.5 mt-1 overflow-hidden">
-            ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
-            ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
-            ${timeAndNoteHtml}
-            ${progressHtml}
-            ${userReminderHtml}
-          </div>
-        `}
+        <!-- 電腦版：完整詳細排程、進度條與狀態 -->
+        <div class="hidden sm:block w-full space-y-0.5 mt-1 overflow-hidden">
+          ${milestoneBadge ? `<span class="px-1 py-0.2 rounded bg-stone-300 text-matte-ink text-[9px] font-extrabold block truncate">${escapeHtml(milestoneBadge)}</span>` : ''}
+          ${badgeHtml || (!milestoneBadge ? `<span class="text-[10px] text-matte-muted block">-</span>` : '')}
+          ${timeAndNoteHtml}
+          ${progressHtml}
+          ${userReminderHtml}
+        </div>
       </button>
     `);
   }
